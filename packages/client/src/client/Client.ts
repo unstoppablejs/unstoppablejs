@@ -1,16 +1,83 @@
 import { Client, GetProvider, Provider, ProviderStatus } from "./types"
 
-export const CreateClient = (gProvider: GetProvider): Client => {
+const MAX_TIME = 2_000
+
+class OrfanMessages {
+  #messages: Map<string, { expiry: number; message: any }>
+  #token: number | NodeJS.Timer | null
+
+  constructor() {
+    this.#messages = new Map()
+    this.#token = null
+  }
+
+  private checkClear(): void {
+    if (this.#messages.size > 0) return
+
+    clearInterval(this.#token as any)
+    this.#token = null
+  }
+
+  set(key: string, message: any): void {
+    this.#messages.set(key, { expiry: Date.now() + MAX_TIME, message })
+
+    this.#token =
+      this.#token ||
+      setInterval(() => {
+        const now = Date.now()
+
+        const iterator = this.#messages.entries()
+        let tmp = iterator.next()
+        while (tmp.done === false && tmp.value[1].expiry <= now) {
+          const key = tmp.value[0]
+          tmp = iterator.next()
+          this.#messages.delete(key)
+        }
+        this.checkClear()
+      }, MAX_TIME)
+  }
+
+  upsert<T>(key: string): T | undefined {
+    const result = this.#messages.get(key)
+    if (!result) return result
+    this.#messages.delete(key)
+    this.checkClear()
+    return result.message
+  }
+
+  clear() {
+    this.#messages.clear()
+    this.checkClear()
+  }
+}
+
+interface RpcError {
+  code: number
+  message: string
+  data?: any
+}
+
+export class ErrorRpc extends Error implements RpcError {
+  code: number
+  data?: any
+  constructor(e: RpcError) {
+    super(e.message)
+    this.code = e.code
+    this.data = e.data
+  }
+}
+
+export const createClient = (gProvider: GetProvider): Client => {
   let nextId = 1
   const callbacks = new Map<number, (cb: any) => void>()
 
   const subscriptionToId = new Map<string, number>()
   const idToSubscription = new Map<number, string>()
 
-  const orfanMessages = new Map<string, { date: number; message: any }>()
+  const orfanMessages = new OrfanMessages()
   const batchedRequests = new Map<
     number,
-    [string, Array<any>, (m: any) => void, boolean]
+    [string, string, (m: any) => void, boolean]
   >()
 
   let provider: Provider | null = null
@@ -18,23 +85,28 @@ export const CreateClient = (gProvider: GetProvider): Client => {
 
   function onMessage(message: string): void {
     try {
-      let id, result, params: { subscription: any; result: any }, subscription
-      ;({ id, result, params } = JSON.parse(message))
+      let id,
+        result,
+        error: RpcError | undefined,
+        params: { subscription: any; result: any; error?: RpcError },
+        subscription
+      ;({ id, result, error, params } = JSON.parse(message))
+
+      // TODO: if the id is `null` it means that its a server notification,
+      // perhaps we should handle them... somehow?
+      if (id === null) return
 
       if (id)
-        return callbacks.get(id)?.(result)
+        return callbacks.get(id)?.(result ?? new ErrorRpc(error!))
 
-        // If the ID wasn't present, it must be a subscription
+        // at this point, it means that it should be a subscription
       ;({ subscription, result } = params)
       if (!subscription || !result) throw new Error("Wrong message format")
 
       id = subscriptionToId.get(subscription)
-      if (id) return callbacks.get(id)?.(result)
+      if (id) return callbacks.get(id)!(result)
 
-      orfanMessages.set(subscription, {
-        date: Date.now(),
-        message: result,
-      })
+      orfanMessages.set(subscription, message)
     } catch (e) {
       console.error("Error parsing an incomming message", message)
       console.error(e)
@@ -69,7 +141,7 @@ export const CreateClient = (gProvider: GetProvider): Client => {
   const process = (
     id: number,
     method: string,
-    params: Array<any>,
+    params: string,
     cb: any,
     isSub: boolean,
   ) => {
@@ -82,11 +154,8 @@ export const CreateClient = (gProvider: GetProvider): Client => {
 
             const nextCb = (d: any) => cb(d.changes[0][1])
 
-            const orfan = orfanMessages.get(result)
-            if (orfan) {
-              orfanMessages.delete(result)
-              nextCb(orfan.message)
-            }
+            const orfan = orfanMessages.upsert(result)
+            if (orfan) nextCb(orfan)
             callbacks.set(id, nextCb)
           }
         : (message: any) => {
@@ -96,24 +165,20 @@ export const CreateClient = (gProvider: GetProvider): Client => {
     )
 
     provider!.send(
-      JSON.stringify({
-        id,
-        jsonrpc: "2.0",
-        method,
-        params,
-      }),
+      `'{"id":${id},"jsonrpc":"2.0","method":"${method}","params":${params}}'`,
     )
   }
 
   const request = <T>(
     method: string,
-    params: Array<any>,
+    params: string,
     cb: (result: T) => void,
+    unsucribeMethod?: string,
   ): (() => void) => {
     if (!provider) throw new Error("Not connected")
     const id = nextId++
 
-    const isSub = method.indexOf("subscribe") > -1
+    const isSub = !!unsucribeMethod
     const cleanup = (): void => {
       if (batchedRequests.has(id)) {
         batchedRequests.delete(id)
@@ -127,13 +192,11 @@ export const CreateClient = (gProvider: GetProvider): Client => {
       subscriptionToId.delete(subId)
       idToSubscription.delete(id)
 
-      const [first, second] = method.split("_")
-
       provider!.send(
         JSON.stringify({
           id: nextId++,
           jsonrpc: "2.0",
-          method: `${first}_un${second}`,
+          method: unsucribeMethod,
           params: [subId],
         }),
       )

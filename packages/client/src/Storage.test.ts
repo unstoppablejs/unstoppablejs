@@ -15,7 +15,7 @@ import { EncodedArgs, Identity } from "./"
 export const AccountId = enhanceCodec(
   Bytes(32),
   (_: string) => new Uint8Array(),
-  (value: Uint8Array) =>
+  (value) =>
     "0x" + [...value].map((val) => val.toString(16).padStart(2, "0")).join(""),
 )
 

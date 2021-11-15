@@ -1,24 +1,24 @@
 import type { Client } from "./client"
 
-export const Rpc = (pallet: string, client: Client) => {
+export const Rpc = (module: string, client: Client) => {
   function rpcCall<ARGS extends Array<any> = [], IT = any, OT = any>(
-    item: string,
+    method: string,
     mapFn: (x: IT) => OT,
   ): (
     ...args: [...ARGS] | [...args: ARGS, abortSignal: AbortSignal]
   ) => Promise<OT>
 
   function rpcCall<T, ARGS extends Array<any> = []>(
-    item: string,
+    method: string,
   ): (
     ...args: [...ARGS] | [...args: ARGS, abortSignal: AbortSignal]
   ) => Promise<T>
 
   function rpcCall<ARGS extends Array<any> = [], IT = any, OT = any>(
-    item: string,
+    method: string,
     mapFn: (x: IT) => OT = (x: IT) => x as unknown as OT,
   ) {
-    const method = `${pallet}_${item}`
+    const fullMethod = `${module}_${method}`
 
     return (...args: [...ARGS] | [...args: ARGS, abortSignal: AbortSignal]) =>
       new Promise<OT>((res, rej) => {
@@ -35,7 +35,7 @@ export const Rpc = (pallet: string, client: Client) => {
           cb()
           rej(new Error("Aborted Promise!"))
         }
-        const cb = client.request<IT>(method, innerArgs, (data) => {
+        const cb = client.request<IT>(fullMethod, innerArgs, (data) => {
           active = false
           signal?.removeEventListener("abort", onAbort)
 

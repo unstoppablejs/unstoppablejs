@@ -2,81 +2,7 @@ import type { Codec, CodecType } from "@unstoppablejs/scale-codec"
 import { mergeUint8, toHex, utf16StrToUtf8Bytes } from "@unstoppablejs/utils"
 import type { Client } from "./client"
 import { twoX128 } from "./hashes/twoX128"
-
-declare global {
-  interface SymbolConstructor {
-    readonly observable: symbol
-  }
-}
-
-if (!Symbol["observable"]) {
-  Object.defineProperty(Symbol, "observable", {
-    value: Symbol("observable"),
-  })
-}
-
-export interface Observer<T> {
-  next: (value: T) => void
-  error: (err: any) => void
-  complete: () => void
-}
-
-export interface Unsubscribable {
-  unsubscribe(): void
-}
-export interface Subscribable<T> {
-  subscribe(observer: Partial<Observer<T>>): Unsubscribable
-}
-export interface InteropObservable<T> {
-  [Symbol.observable]: () => Subscribable<T>
-  subscribe: (
-    next: (value: T) => void,
-    error?: (e: unknown) => void,
-  ) => () => void
-}
-
-const getInteropObservable = <T>(
-  fn: (observer: {
-    next: (value: T) => void
-    error: (e: unknown) => void
-  }) => () => void,
-  namespace: string,
-): InteropObservable<T> => {
-  const defaulOntError = (e: unknown) => {
-    console.log(`An uncaught error ocurred on ${namespace}!`)
-    console.error(e)
-  }
-
-  const realSubscribe = (
-    next: (value: T) => void,
-    error: (e: unknown) => void = defaulOntError,
-  ): (() => void) => fn({ next, error })
-
-  return {
-    subscribe: realSubscribe,
-    [Symbol.observable]() {
-      return {
-        subscribe(
-          nextOrObserver: any,
-          error: any = Function.prototype,
-          complete: any = Function.prototype,
-        ) {
-          const observer =
-            typeof nextOrObserver === "function"
-              ? { next: nextOrObserver, error, complete }
-              : nextOrObserver
-
-          const unsubscribe = realSubscribe(
-            observer.next.bind(observer),
-            observer.error.bind(observer),
-          )
-
-          return { unsubscribe }
-        },
-      }
-    },
-  }
-}
+import { getInteropObservable } from "./InteropObservable"
 
 type ReturnType<A extends Array<any>, C extends Codec<any>> = A extends []
   ? CodecType<C>
@@ -126,6 +52,7 @@ export const Storage = (pallet: string, client: Client) => {
                 observer.error(e)
               }
             },
+            "state_unsubscribeStorage",
           ),
         `${pallet}_${item}_${args.join("_")}`,
       )
