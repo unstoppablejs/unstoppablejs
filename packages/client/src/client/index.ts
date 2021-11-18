@@ -1,2 +1,3 @@
 export * from "./types"
-export { CreateClient } from "./Client"
+export { createClient } from "./Multiplexer"
+export { ErrorRpc } from "./ErrorRpc"

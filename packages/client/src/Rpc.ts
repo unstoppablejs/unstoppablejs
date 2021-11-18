@@ -35,16 +35,20 @@ export const Rpc = (module: string, client: Client) => {
           cb()
           rej(new Error("Aborted Promise!"))
         }
-        const cb = client.request<IT>(fullMethod, innerArgs, (data) => {
-          active = false
-          signal?.removeEventListener("abort", onAbort)
+        const cb = client.request<IT>(
+          fullMethod,
+          JSON.stringify(innerArgs),
+          (data) => {
+            active = false
+            signal?.removeEventListener("abort", onAbort)
 
-          try {
-            res(mapFn(data))
-          } catch (e) {
-            rej(e)
-          }
-        })
+            try {
+              res(mapFn(data))
+            } catch (e) {
+              rej(e)
+            }
+          },
+        )
 
         if (signal && active) signal.addEventListener("abort", onAbort)
       })

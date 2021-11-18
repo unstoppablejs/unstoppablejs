@@ -1,6 +1,6 @@
 import { GetProvider, ProviderStatus } from "@unstoppablejs/provider"
 import { Storage } from "./Storage"
-import { CreateClient } from "./client"
+import { createClient } from "./client"
 import {
   Bytes,
   enhanceCodec,
@@ -43,7 +43,7 @@ const getMockProvider = () => {
 describe("Storage", () => {
   it("observable - no args", () => {
     const { getProvider, sent, onMessage } = getMockProvider()
-    const client = CreateClient(getProvider)
+    const client = createClient(getProvider)
     client.connect()
 
     expect(sent.length).toBe(0)
@@ -145,7 +145,7 @@ describe("Storage", () => {
 
   it("observable - args", () => {
     const { getProvider, sent, onMessage } = getMockProvider()
-    const client = CreateClient(getProvider)
+    const client = createClient(getProvider)
     client.connect()
 
     expect(sent.length).toBe(0)

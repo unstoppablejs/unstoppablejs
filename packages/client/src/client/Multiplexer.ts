@@ -1,7 +1,7 @@
 import { GetProvider } from "@unstoppablejs/provider"
-import { createClient } from "./Client"
+import { createRawClient } from "./Client"
+import type { Client, OnData } from "./types"
 
-type OnData = (data: any) => void
 interface CacheItem {
   listerners: Set<OnData>
   close: () => void
@@ -20,17 +20,17 @@ const finalize =
     }
   }
 
-export const createMultiplexer = (gProvider: GetProvider) => {
-  const client = createClient(gProvider)
+export const createClient = (gProvider: GetProvider): Client => {
+  const client = createRawClient(gProvider)
 
   const subscriptions = new Map<string, CacheItem & { lastVal?: any }>()
   const requestReplies = new Map<string, CacheItem>()
 
-  const subscribe = (
+  const subscribe = <T>(
     subs: string,
     unsubs: string,
     params: Array<any>,
-    cb: OnData,
+    cb: OnData<T>,
   ): (() => void) => {
     const parametersStr = JSON.stringify(params)
     const id = `${subs}.${parametersStr}`
@@ -58,10 +58,10 @@ export const createMultiplexer = (gProvider: GetProvider) => {
     return finalize(id, cb, subscriptions)
   }
 
-  const requestReply = (
+  const requestReply = <T>(
     method: string,
     params: Array<any>,
-    cb: OnData,
+    cb: OnData<T>,
     subs?: string,
   ): (() => void) => {
     const parametersStr = JSON.stringify(params)
@@ -105,9 +105,8 @@ export const createMultiplexer = (gProvider: GetProvider) => {
   }
 
   return {
+    ...client,
     requestReply,
     subscribe,
-    connect: client.connect,
-    disconnect: client.disconnect,
   }
 }

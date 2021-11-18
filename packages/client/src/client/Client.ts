@@ -1,4 +1,11 @@
-import { Client, GetProvider, Provider, ProviderStatus } from "./types"
+import {
+  Client,
+  GetProvider,
+  Provider,
+  ProviderStatus,
+  RpcError,
+} from "./types"
+import { ErrorRpc } from "./ErrorRpc"
 
 const MAX_TIME = 2_000
 
@@ -39,7 +46,7 @@ class OrfanMessages {
 
   upsert<T>(key: string): T | undefined {
     const result = this.#messages.get(key)
-    if (!result) return result
+    if (!result) return undefined
     this.#messages.delete(key)
     this.checkClear()
     return result.message
@@ -51,23 +58,8 @@ class OrfanMessages {
   }
 }
 
-interface RpcError {
-  code: number
-  message: string
-  data?: any
-}
-
-export class ErrorRpc extends Error implements RpcError {
-  code: number
-  data?: any
-  constructor(e: RpcError) {
-    super(e.message)
-    this.code = e.code
-    this.data = e.data
-  }
-}
-
-export const createClient = (gProvider: GetProvider): Client => {
+export type RawClient = Omit<Client, "subscribe" | "requestReply">
+export const createRawClient = (gProvider: GetProvider): RawClient => {
   let nextId = 1
   const callbacks = new Map<number, (cb: any) => void>()
 
@@ -106,7 +98,7 @@ export const createClient = (gProvider: GetProvider): Client => {
       id = subscriptionToId.get(subscription)
       if (id) return callbacks.get(id)!(result)
 
-      orfanMessages.set(subscription, message)
+      orfanMessages.set(subscription, result)
     } catch (e) {
       console.error("Error parsing an incomming message", message)
       console.error(e)
@@ -152,7 +144,9 @@ export const createClient = (gProvider: GetProvider): Client => {
             subscriptionToId.set(result, id)
             idToSubscription.set(id, result)
 
-            const nextCb = (d: any) => cb(d.changes[0][1])
+            const nextCb = (d: any) => {
+              cb(d.changes[0][1])
+            }
 
             const orfan = orfanMessages.upsert(result)
             if (orfan) nextCb(orfan)
@@ -164,9 +158,9 @@ export const createClient = (gProvider: GetProvider): Client => {
           },
     )
 
-    provider!.send(
-      `'{"id":${id},"jsonrpc":"2.0","method":"${method}","params":${params}}'`,
-    )
+    const msg = `{"id":${id},"jsonrpc":"2.0","method":"${method}","params":${params}}`
+    console.log("sending", msg)
+    provider!.send(msg)
   }
 
   const request = <T>(

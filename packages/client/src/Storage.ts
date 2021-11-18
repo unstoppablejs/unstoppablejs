@@ -1,6 +1,6 @@
 import type { Codec, CodecType } from "@unstoppablejs/scale-codec"
 import { mergeUint8, toHex, utf16StrToUtf8Bytes } from "@unstoppablejs/utils"
-import type { Client } from "./client"
+import { ErrorRpc, Client } from "./client"
 import { twoX128 } from "./hashes/twoX128"
 import { getInteropObservable } from "./InteropObservable"
 
@@ -40,22 +40,23 @@ export const Storage = (pallet: string, client: Client) => {
       input && (result[1](input) as any)
 
     const observable = (...args: OT) =>
-      getInteropObservable<ReturnType<A, C>>(
-        (observer) =>
-          client.request<string | null>(
-            "state_subscribeStorage",
-            [[send(...args)]],
-            (data) => {
-              try {
-                observer.next(onReceive(data))
-              } catch (e) {
-                observer.error(e)
-              }
-            },
-            "state_unsubscribeStorage",
-          ),
-        `${pallet}_${item}_${args.join("_")}`,
-      )
+      getInteropObservable<ReturnType<A, C>>((observer) => {
+        const subs = client.subscribe<string | null>(
+          "state_subscribeStorage",
+          "state_unsubscribeStorage",
+          [[send(...args)]],
+          (data) => {
+            try {
+              if ((data as any) instanceof ErrorRpc) throw data
+              observer.next(onReceive(data))
+            } catch (e) {
+              subs && subs()
+              observer.error(e)
+            }
+          },
+        )
+        return subs
+      }, `${pallet}_${item}_${args.join("_")}`)
 
     const get = (...args: [...OT] | [...args: OT, abortSignal: AbortSignal]) =>
       new Promise<ReturnType<A, C>>((res, rej) => {
@@ -72,7 +73,7 @@ export const Storage = (pallet: string, client: Client) => {
           cb()
           rej(new Error("Aborted Promise!"))
         }
-        const cb = client.request<string | null>(
+        const cb = client.requestReply<string | null>(
           "state_getStorage",
           [send(...innerArgs)],
           (data) => {
@@ -80,11 +81,14 @@ export const Storage = (pallet: string, client: Client) => {
             signal?.removeEventListener("abort", onAbort)
 
             try {
+              if ((data as any) instanceof ErrorRpc) throw data
               res(onReceive(data))
             } catch (e) {
+              cb && cb()
               rej(e)
             }
           },
+          "state_subscribeStorage",
         )
 
         if (signal && active) signal.addEventListener("abort", onAbort)
