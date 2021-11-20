@@ -1,5 +1,7 @@
 import { GetProvider } from "@unstoppablejs/provider"
+import { getInteropObservable, InteropObservable } from "../InteropObservable"
 import { createRawClient } from "./Client"
+import { ErrorRpc } from "./ErrorRpc"
 import type { Client, OnData } from "./types"
 
 interface CacheItem {
@@ -26,87 +28,120 @@ export const createClient = (gProvider: GetProvider): Client => {
   const subscriptions = new Map<string, CacheItem & { lastVal?: any }>()
   const requestReplies = new Map<string, CacheItem>()
 
-  const subscribe = <T>(
+  const getObservable = <T>(
     subs: string,
     unsubs: string,
     params: Array<any>,
-    cb: OnData<T>,
-  ): (() => void) => {
+    mapper?: (i: any) => T,
+    namespace?: string,
+  ): InteropObservable<T> => {
     const parametersStr = JSON.stringify(params)
     const id = `${subs}.${parametersStr}`
 
-    if (!subscriptions.has(id)) {
-      const sub: Partial<CacheItem & { lastVal?: any }> = {
-        listerners: new Set([cb]),
+    return getInteropObservable<T>(({ next, error }) => {
+      const cb = (data: any) => {
+        try {
+          if (data instanceof ErrorRpc) throw data
+          next(mapper ? mapper(data) : data)
+        } catch (e) {
+          cleanup && cleanup()
+          error(e)
+        }
       }
-      subscriptions.set(id, sub as CacheItem)
-      sub.close = client.request(
-        subs,
-        parametersStr,
-        (result) => {
-          subscriptions.get(id)?.listerners.forEach((icb) => {
-            sub.lastVal = result
-            icb(result)
-          })
-        },
-        unsubs,
-      )
-    } else {
-      subscriptions.get(id)!.listerners.add(cb)
-    }
 
-    return finalize(id, cb, subscriptions)
+      if (!subscriptions.has(id)) {
+        const sub: Partial<CacheItem & { lastVal?: any }> = {
+          listerners: new Set([cb]),
+        }
+        subscriptions.set(id, sub as CacheItem)
+        sub.close = client.request(
+          subs,
+          parametersStr,
+          (result) => {
+            subscriptions.get(id)?.listerners.forEach((icb) => {
+              sub.lastVal = result
+              icb(result)
+            })
+          },
+          unsubs,
+        )
+      } else {
+        subscriptions.get(id)!.listerners.add(cb)
+      }
+
+      const cleanup = finalize(id, cb, subscriptions)
+      return cleanup
+    }, namespace ?? `${id}_${parametersStr}`)
   }
 
   const requestReply = <T>(
     method: string,
     params: Array<any>,
-    cb: OnData<T>,
+    mapper: (data: any) => T = (x) => x,
     subs?: string,
-  ): (() => void) => {
-    const parametersStr = JSON.stringify(params)
-    const subId = `${subs}.${parametersStr}`
-    const sub = subscriptions.get(subId)
-    if (sub) {
-      if (sub.hasOwnProperty("lastVal")) {
-        cb(sub.lastVal)
-        return () => {}
-      } else {
-        const eCb: OnData = (data) => {
-          cb(data)
-          teardown()
+    abortSignal?: AbortSignal,
+  ): Promise<T> =>
+    new Promise<T>((res, rej) => {
+      const parametersStr = JSON.stringify(params)
+      const subId = `${subs}.${parametersStr}`
+      const sub = subscriptions.get(subId)
+      let teardown: (() => void) | null = null
+      let active = true
+
+      function onAbort() {
+        abortSignal!.removeEventListener("abort", onAbort)
+        active && rej(new Error("Aborted Promise!"))
+        teardown?.()
+      }
+
+      const cb = (data: any): void => {
+        active = false
+        abortSignal?.removeEventListener("abort", onAbort)
+        try {
+          if (data instanceof ErrorRpc) throw data
+          res(mapper(data))
+        } catch (e) {
+          rej(e)
+        } finally {
+          teardown?.()
         }
-        const teardown = finalize(subId, eCb, subscriptions)
-        sub.listerners.add(eCb)
-        return teardown
       }
-    }
 
-    const id = `${method}.${parametersStr}`
-    const requestReply = requestReplies.get(id)
-
-    if (requestReply) {
-      requestReply.listerners.add(cb)
-    } else {
-      const replyObj: Partial<CacheItem> = {
-        listerners: new Set([cb]),
+      if (sub) {
+        if (sub.hasOwnProperty("lastVal")) {
+          return cb(sub.lastVal)
+        } else {
+          teardown = finalize(subId, cb, subscriptions)
+          sub.listerners.add(cb)
+        }
       }
-      requestReplies.set(id, replyObj as CacheItem)
-      replyObj.close = client.request(method, parametersStr, (val) => {
-        replyObj.listerners!.forEach((icb) => {
-          icb(val)
+
+      const id = `${method}.${parametersStr}`
+      const requestReply = requestReplies.get(id)
+
+      if (requestReply) {
+        requestReply.listerners.add(cb)
+      } else {
+        const replyObj: Partial<CacheItem> = {
+          listerners: new Set([cb]),
+        }
+        requestReplies.set(id, replyObj as CacheItem)
+        replyObj.close = client.request(method, parametersStr, (val) => {
+          replyObj.listerners!.forEach((icb) => {
+            icb(val)
+          })
+          replyObj.listerners!.clear()
+          requestReplies.delete(id)
         })
-        replyObj.listerners!.clear()
-        requestReplies.delete(id)
-      })
-    }
+      }
 
-    return finalize(id, cb, requestReplies)
-  }
+      teardown = finalize(id, cb, requestReplies)
+      if (abortSignal && active) abortSignal.addEventListener("abort", onAbort)
+    })
 
   return {
     ...client,
     requestReply,
-    subscribe,
+    getObservable,
   }
 }

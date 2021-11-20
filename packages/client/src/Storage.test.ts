@@ -1,5 +1,5 @@
 import { GetProvider, ProviderStatus } from "@unstoppablejs/provider"
-import { Storage } from "./Storage"
+import { createStorage } from "./Storage"
 import { createClient } from "./client"
 import {
   Bytes,
@@ -48,7 +48,9 @@ describe("Storage", () => {
 
     expect(sent.length).toBe(0)
 
-    const sudo = Storage("Sudo", client)
+    const Storage = createStorage(client)
+
+    const sudo = Storage("Sudo")
     const sudoKey = sudo("Key", AccountId)
 
     const sudoKey$ = from(sudoKey.observable())
@@ -156,7 +158,8 @@ describe("Storage", () => {
       created: SDate(64),
     })
 
-    const Adz = Storage("Adz", client)
+    const Storage = createStorage(client)
+    const Adz = Storage("Adz")
     const commentArgs: EncodedArgs<[adId: number, commentId: number]> = [
       Identity(U32),
       Identity(U32),

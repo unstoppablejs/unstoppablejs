@@ -58,7 +58,7 @@ class OrfanMessages {
   }
 }
 
-export type RawClient = Omit<Client, "subscribe" | "requestReply">
+export type RawClient = Omit<Client, "getObservable" | "requestReply">
 export const createRawClient = (gProvider: GetProvider): RawClient => {
   let nextId = 1
   const callbacks = new Map<number, (cb: any) => void>()

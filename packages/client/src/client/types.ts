@@ -1,3 +1,5 @@
+import { InteropObservable } from "../InteropObservable"
+
 export { GetProvider, Provider, ProviderStatus } from "@unstoppablejs/provider"
 export type OnData<T = any> = (data: T) => void
 export interface Client {
@@ -9,18 +11,20 @@ export interface Client {
   ) => () => void
   connect: () => void
   disconnect: () => void
-  subscribe: <T>(
+  getObservable: <T>(
     subs: string,
     unsubs: string,
     params: Array<any>,
-    cb: OnData<T>,
-  ) => () => void
+    mapper?: (data: any) => T,
+    namespace?: string,
+  ) => InteropObservable<T>
   requestReply: <T>(
     method: string,
     params: Array<any>,
-    cb: OnData<T>,
+    mapper?: (data: any) => T,
     subs?: string,
-  ) => () => void
+    abortSignal?: AbortSignal,
+  ) => Promise<T>
 }
 
 export interface RpcError {
