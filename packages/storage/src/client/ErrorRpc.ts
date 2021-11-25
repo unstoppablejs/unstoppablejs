@@ -1,4 +1,4 @@
-import type { RpcError } from "../types"
+import type { RpcError } from "./types"
 
 export class ErrorRpc extends Error implements RpcError {
   code: number
