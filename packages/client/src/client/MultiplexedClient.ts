@@ -11,6 +11,14 @@ interface CacheItem {
   close: () => void
 }
 
+// Do not make it public: https://github.com/ReactiveX/rxjs/pull/6675#pullrequestreview-816542124
+class AbortError extends Error {
+  constructor() {
+    super("Aborted by AbortSignal")
+    this.name = "AbortError"
+  }
+}
+
 const finalize =
   (id: string, cb: OnData, map: Map<string, CacheItem>) => () => {
     const val = map.get(id)
@@ -70,6 +78,8 @@ export const createClient = (gProvider: GetProvider): Client => {
           unsubs,
         )
       } else {
+        const entry = subscriptions.get(id)!
+        if (entry.hasOwnProperty("lastVal")) cb(entry.lastVal!)
         subscriptions.get(id)!.listerners.add(cb)
       }
 
@@ -94,7 +104,13 @@ export const createClient = (gProvider: GetProvider): Client => {
 
       function onAbort() {
         abortSignal!.removeEventListener("abort", onAbort)
-        active && rej(new Error("Aborted Promise!"))
+        if (active) {
+          /* istanbul ignore next */
+          const reason = abortSignal!.hasOwnProperty("reason")
+            ? (abortSignal! as any).reason
+            : new AbortError()
+          rej(reason)
+        }
         teardown?.()
       }
 
@@ -112,12 +128,9 @@ export const createClient = (gProvider: GetProvider): Client => {
       }
 
       if (sub) {
-        if (sub.hasOwnProperty("lastVal")) {
-          return cb(sub.lastVal)
-        } else {
-          teardown = finalize(subId, cb, subscriptions)
-          sub.listerners.add(cb)
-        }
+        if (sub.hasOwnProperty("lastVal")) return cb(sub.lastVal)
+        teardown = finalize(subId, cb, subscriptions)
+        return sub.listerners.add(cb)
       }
 
       const id = `${method}.${parametersStr}`
@@ -130,13 +143,19 @@ export const createClient = (gProvider: GetProvider): Client => {
           listerners: new Set([cb]),
         }
         requestReplies.set(id, replyObj as CacheItem)
-        replyObj.close = client.request<I>(method, parametersStr, (val) => {
-          replyObj.listerners!.forEach((icb) => {
-            icb(val)
+        try {
+          replyObj.close = client.request<I>(method, parametersStr, (val) => {
+            replyObj.listerners!.forEach((icb) => {
+              icb(val)
+            })
+            replyObj.listerners!.clear()
+            requestReplies.delete(id)
           })
+        } catch (e) {
+          rej(e)
           replyObj.listerners!.clear()
           requestReplies.delete(id)
-        })
+        }
       }
 
       teardown = finalize(id, cb, requestReplies)

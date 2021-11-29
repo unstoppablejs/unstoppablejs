@@ -7,12 +7,6 @@ declare global {
   }
 }
 
-if (!Symbol["observable"]) {
-  Object.defineProperty(Symbol, "observable", {
-    value: Symbol("observable"),
-  })
-}
-
 export interface Observer<T> {
   next: (value: T) => void
   error: (err: any) => void

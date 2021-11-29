@@ -1,5 +1,11 @@
 import type { InteropObservable } from "../types"
 
+if (!Symbol["observable"]) {
+  Object.defineProperty(Symbol, "observable", {
+    value: Symbol("observable"),
+  })
+}
+
 export const getInteropObservable = <T>(
   fn: (observer: {
     next: (value: T) => void

@@ -39,6 +39,7 @@ export const createRawClient = (gProvider: GetProvider): RawClient => {
 
       // TODO: if the id is `null` it means that its a server notification,
       // perhaps we should handle them... somehow?
+      /* istanbul ignore next */
       if (id === null) return
 
       if (id)
@@ -46,8 +47,7 @@ export const createRawClient = (gProvider: GetProvider): RawClient => {
 
         // at this point, it means that it should be a subscription
       ;({ subscription, result, error } = params)
-      if (!subscription || (!result && !error))
-        throw new Error("Wrong message format")
+      if (!subscription || (!result && !error)) throw 0
       const data = result ?? new ErrorRpc(error!)
 
       id = subscriptionToId.get(subscription)
@@ -55,8 +55,7 @@ export const createRawClient = (gProvider: GetProvider): RawClient => {
 
       orfanMessages.set(subscription, data)
     } catch (e) {
-      console.error("Error parsing an incomming message", message)
-      console.error(e)
+      throw new Error("Error parsing incomming message: " + message)
     }
   }
 
