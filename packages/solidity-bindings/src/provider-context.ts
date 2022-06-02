@@ -74,10 +74,10 @@ export const providerCtx = (getProvider: () => JsonRpcProvider) => {
     }
 
     const next = observer.next.bind(observer)
-    ;(innerProvider as any).addListener("message", next)
+    ;(innerProvider as any).on("message", next)
     return () => {
       try {
-        ;(innerProvider as any).removeListener("message", next)
+        ;(innerProvider as any).off("message", next)
       } catch (_) {}
     }
   })
