@@ -1,6 +1,6 @@
 import type { JsonRpcProvider } from "@json-rpc-tools/provider"
 import { Codec, Decoder, StringRecord } from "solidity-codecs"
-import { concatMap, defer, filter, map, Observable, Subscriber } from "rxjs"
+import { Observable, Subscriber, Subscription } from "rxjs"
 import type { UnionToIntersection, Untuple, InnerCodecs } from "./utils"
 import { fromOverloadedToSolidityFn, SolidityFn } from "./fn"
 
@@ -77,7 +77,7 @@ export const providerCtx = (getProvider: () => JsonRpcProvider) => {
     ;(innerProvider as any).on("message", next)
     return () => {
       try {
-        ;(innerProvider as any).off("message", next)
+        ;(innerProvider as any).removeListener("message", next)
       } catch (_) {}
     }
   })
@@ -112,11 +112,21 @@ export const providerCtx = (getProvider: () => JsonRpcProvider) => {
       params,
     })
 
-  const subscribe = <T = any>(params: Array<any>): Observable<T> => {
-    return defer(() => request("eth_subscribe", params)).pipe(
-      concatMap(getSubscription),
-    )
-  }
+  const subscribe = <T = any>(params: Array<any>): Observable<T> =>
+    new Observable((observer) => {
+      let subs: Subscription
+      request("eth_subscribe", params).then(
+        (x) => {
+          if (!observer.closed) {
+            subs = getSubscription(x).subscribe(observer)
+          }
+        },
+        (e) => observer.error(e),
+      )
+      return () => {
+        subs?.unsubscribe()
+      }
+    })
 
   const event =
     <F extends StringRecord<any>, O>(e: {
@@ -133,13 +143,29 @@ export const providerCtx = (getProvider: () => JsonRpcProvider) => {
         topics: e.encodeTopics(eventFilter),
       }
       if (contractAddress) options.address = contractAddress
-      return subscribe(["logs", options]).pipe(
-        filter((x) => !x?.result?.removed),
-        map((message) => ({
-          data: e.decodeData(message.result.data),
-          filters: e.decodeFilters(message.result.topics),
-          message,
-        })),
+      const src = subscribe(["logs", options])
+      return new Observable((observer) =>
+        src.subscribe({
+          next: (x) => {
+            let msg
+            try {
+              msg = {
+                data: e.decodeData(x.result.data),
+                filters: e.decodeFilters(x.result.topics),
+                message: x,
+              }
+            } catch (e) {
+              return observer.error(e)
+            }
+            observer.next(msg)
+          },
+          error: (e) => {
+            observer.error(e)
+          },
+          complete: () => {
+            observer.complete()
+          },
+        }),
       )
     }
 
