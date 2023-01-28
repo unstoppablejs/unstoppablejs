@@ -1,6 +1,7 @@
 import type { UnionToIntersection, Untuple, InnerCodecsOrBlock } from "../utils"
 import type { SolidityFn } from "../descriptors/fn"
 import { withOverload, getTrackingId, logResponse } from "../internal"
+import { SolidityError, UnionErrors, errorsEnhancer } from "../descriptors"
 
 export type SolidityCallFunctions<
   A extends Array<SolidityFn<any, any, any, any>>,
@@ -16,11 +17,39 @@ export type SolidityCallFunctions<
   }[keyof A & number]
 >
 
+export type SolidityCallFunctionsWithErrors<
+  A extends Array<SolidityFn<any, any, any, any>>,
+  E extends Array<SolidityError<any, any>>,
+> = UnionToIntersection<
+  {
+    [K in keyof A]: A[K] extends SolidityFn<any, infer V, infer O, any>
+      ? (
+          contractAddress: string,
+          overload: K,
+          ...args: InnerCodecsOrBlock<V>
+        ) => Promise<
+          | {
+              ok: true
+              result: Untuple<O>
+            }
+          | {
+              ok: false
+              error: UnionErrors<E>
+            }
+        >
+      : never
+  }[keyof A & number]
+>
+
 export type SolidityCallOverload = <
   F extends Array<SolidityFn<any, any, any, any>>,
+  E extends Array<SolidityError<any, any>>,
 >(
   overloaded: F,
-) => SolidityCallFunctions<F>
+  ...errors: E
+) => [] extends E
+  ? SolidityCallFunctions<F>
+  : SolidityCallFunctionsWithErrors<F, E>
 
 export type SolidityCallFunction<F extends SolidityFn<any, any, any, any>> =
   F extends SolidityFn<any, infer I, infer O, any>
@@ -29,9 +58,35 @@ export type SolidityCallFunction<F extends SolidityFn<any, any, any, any>> =
         ...args: InnerCodecsOrBlock<I>
       ) => Promise<Untuple<O>>
     : never
-export type SolidityCallSingle = <F extends SolidityFn<any, any, any, any>>(
+
+export type SolidityCallFunctionWithErrors<
+  F extends SolidityFn<any, any, any, any>,
+  E extends Array<SolidityError<any, any>>,
+> = F extends SolidityFn<any, infer I, infer O, any>
+  ? (
+      contractAddress: string,
+      ...args: InnerCodecsOrBlock<I>
+    ) => Promise<
+      | {
+          ok: true
+          result: Untuple<O>
+        }
+      | {
+          ok: false
+          error: UnionErrors<E>
+        }
+    >
+  : never
+
+export type SolidityCallSingle = <
+  F extends SolidityFn<any, any, any, any>,
+  E extends Array<SolidityError<any, any>>,
+>(
   fn: F,
-) => SolidityCallFunction<F>
+  ...errors: E
+) => [] extends E
+  ? SolidityCallFunction<F>
+  : SolidityCallFunctionWithErrors<F, E>
 
 export const getCall = (
   request: <T = any>(
@@ -43,8 +98,12 @@ export const getCall = (
 ): SolidityCallSingle & SolidityCallOverload =>
   withOverload(
     1,
-    (fn: SolidityFn<any, any, any, any>) =>
-      (contractAddress: string, ...args: any[]) => {
+    (
+      fn: SolidityFn<any, any, any, any>,
+      ...errors: Array<SolidityError<any, any>>
+    ) => {
+      const enhancer = errorsEnhancer(errors)
+      return (contractAddress: string, ...args: any[]) => {
         let [actualArgs, toBlock] =
           args.length > fn.encoder.size
             ? [args.slice(0, -1), args.slice(-1)[0]]
@@ -62,18 +121,20 @@ export const getCall = (
           args: actualArgs,
           trackingId,
         }
-        return request(
-          type,
-          [
-            {
-              to: contractAddress,
-              data: fn.encoder.asHex(...(actualArgs as any)),
-            },
-            toBlock,
-          ],
-          meta,
-        )
-          .then(fn.decoder)
-          .then(...logResponse(meta, logger))
-      },
-  )
+
+        return enhancer(
+          request(
+            type,
+            [
+              {
+                to: contractAddress,
+                data: fn.encoder.asHex(...(actualArgs as any)),
+              },
+              toBlock,
+            ],
+            meta,
+          ).then(fn.decoder),
+        ).then(...logResponse(meta, logger))
+      }
+    },
+  ) as any
