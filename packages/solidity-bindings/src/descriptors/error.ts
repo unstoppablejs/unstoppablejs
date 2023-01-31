@@ -18,6 +18,21 @@ export type UnionErrors<E, R = never> = E extends [infer V, ...infer Rest]
     >
   : R
 
+export type ErrorResult<
+  E extends Array<SolidityError<any, any>>,
+  T,
+> = [] extends E
+  ? T
+  :
+      | {
+          ok: true
+          result: T
+        }
+      | {
+          ok: false
+          error: UnionErrors<E>
+        }
+
 export interface SolidityError<
   F extends StringRecord<Codec<any>>,
   N extends string,

@@ -3,35 +3,11 @@ import type {
   InnerCodecs,
   InnerCodecsOrPayableAmount,
 } from "../utils"
-import type { SolidityFn, SolidityError, UnionErrors } from "../descriptors"
+import type { SolidityFn, SolidityError, ErrorResult } from "../descriptors"
 import { errorsEnhancer } from "../descriptors"
 import { getTrackingId, logResponse, withOverload } from "../internal"
 
 export type SolidityTxFunctions<
-  A extends Array<SolidityFn<any, any, any, any>>,
-> = UnionToIntersection<
-  {
-    [K in keyof A]: A[K] extends SolidityFn<any, infer V, any, infer Mutability>
-      ? Mutability extends 2
-        ? (
-            contractAddress: string,
-            fromAddress: string,
-            overload: K,
-            ...args: InnerCodecs<V>
-          ) => Promise<string>
-        : Mutability extends 3
-        ? (
-            contractAddress: string,
-            fromAddress: string,
-            overload: K,
-            ...args: InnerCodecsOrPayableAmount<V>
-          ) => Promise<string>
-        : never
-      : never
-  }[keyof A & number]
->
-
-export type SolidityTxFunctionsWithErrors<
   A extends Array<SolidityFn<any, any, any, any>>,
   E extends Array<SolidityError<any, any>>,
 > = UnionToIntersection<
@@ -43,32 +19,14 @@ export type SolidityTxFunctionsWithErrors<
             fromAddress: string,
             overload: K,
             ...args: InnerCodecs<V>
-          ) => Promise<
-            | {
-                ok: true
-                result: string
-              }
-            | {
-                ok: false
-                error: UnionErrors<E>
-              }
-          >
+          ) => Promise<ErrorResult<E, string>>
         : Mutability extends 3
         ? (
             contractAddress: string,
             fromAddress: string,
             overload: K,
             ...args: InnerCodecsOrPayableAmount<V>
-          ) => Promise<
-            | {
-                ok: true
-                result: string
-              }
-            | {
-                ok: false
-                error: UnionErrors<E>
-              }
-          >
+          ) => Promise<ErrorResult<E, string>>
         : never
       : never
   }[keyof A & number]
@@ -79,26 +37,10 @@ export type SolidityTxOverload = <
   E extends Array<SolidityError<any, any>>,
 >(
   overloaded: F,
-) => [] extends E ? SolidityTxFunctions<F> : SolidityTxFunctionsWithErrors<F, E>
+  ...errors: E
+) => SolidityTxFunctions<F, E>
 
-export type SolidityTxFunction<F extends SolidityFn<any, any, any, 2 | 3>> =
-  F extends SolidityFn<any, infer I, any, infer P>
-    ? P extends 2
-      ? (
-          contractAddress: string,
-          fromAddress: string,
-          ...args: InnerCodecs<I>
-        ) => Promise<string>
-      : P extends 3
-      ? (
-          contractAddress: string,
-          fromAddress: string,
-          ...args: InnerCodecsOrPayableAmount<I>
-        ) => Promise<string>
-      : never
-    : never
-
-export type SolidityTxFunctionWithErrors<
+export type SolidityTxFunction<
   F extends SolidityFn<any, any, any, 2 | 3>,
   E extends Array<SolidityError<any, any>>,
 > = F extends SolidityFn<any, infer I, any, infer P>
@@ -107,31 +49,13 @@ export type SolidityTxFunctionWithErrors<
         contractAddress: string,
         fromAddress: string,
         ...args: InnerCodecs<I>
-      ) => Promise<
-        | {
-            ok: true
-            result: string
-          }
-        | {
-            ok: false
-            error: UnionErrors<E>
-          }
-      >
+      ) => Promise<ErrorResult<E, string>>
     : P extends 3
     ? (
         contractAddress: string,
         fromAddress: string,
         ...args: InnerCodecsOrPayableAmount<I>
-      ) => Promise<
-        | {
-            ok: true
-            result: string
-          }
-        | {
-            ok: false
-            error: UnionErrors<E>
-          }
-      >
+      ) => Promise<ErrorResult<E, string>>
     : never
   : never
 
@@ -140,7 +64,8 @@ export type SolidityTxSingle = <
   E extends Array<SolidityError<any, any>>,
 >(
   fn: F,
-) => [] extends E ? SolidityTxFunction<F> : SolidityTxFunctionWithErrors<F, E>
+  ...errors: E
+) => SolidityTxFunction<F, E>
 
 export const getTx = (
   request: <T = any>(method: string, args: Array<any>, meta: any) => Promise<T>,

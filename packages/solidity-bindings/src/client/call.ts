@@ -1,23 +1,9 @@
 import type { UnionToIntersection, Untuple, InnerCodecsOrBlock } from "../utils"
 import type { SolidityFn } from "../descriptors/fn"
 import { withOverload, getTrackingId, logResponse } from "../internal"
-import { SolidityError, UnionErrors, errorsEnhancer } from "../descriptors"
+import { SolidityError, ErrorResult, errorsEnhancer } from "../descriptors"
 
 export type SolidityCallFunctions<
-  A extends Array<SolidityFn<any, any, any, any>>,
-> = UnionToIntersection<
-  {
-    [K in keyof A]: A[K] extends SolidityFn<any, infer V, infer O, any>
-      ? (
-          contractAddress: string,
-          overload: K,
-          ...args: InnerCodecsOrBlock<V>
-        ) => Promise<Untuple<O>>
-      : never
-  }[keyof A & number]
->
-
-export type SolidityCallFunctionsWithErrors<
   A extends Array<SolidityFn<any, any, any, any>>,
   E extends Array<SolidityError<any, any>>,
 > = UnionToIntersection<
@@ -27,16 +13,7 @@ export type SolidityCallFunctionsWithErrors<
           contractAddress: string,
           overload: K,
           ...args: InnerCodecsOrBlock<V>
-        ) => Promise<
-          | {
-              ok: true
-              result: Untuple<O>
-            }
-          | {
-              ok: false
-              error: UnionErrors<E>
-            }
-        >
+        ) => Promise<ErrorResult<E, Untuple<O>>>
       : never
   }[keyof A & number]
 >
@@ -47,35 +24,16 @@ export type SolidityCallOverload = <
 >(
   overloaded: F,
   ...errors: E
-) => [] extends E
-  ? SolidityCallFunctions<F>
-  : SolidityCallFunctionsWithErrors<F, E>
+) => SolidityCallFunctions<F, E>
 
-export type SolidityCallFunction<F extends SolidityFn<any, any, any, any>> =
-  F extends SolidityFn<any, infer I, infer O, any>
-    ? (
-        contractAddress: string,
-        ...args: InnerCodecsOrBlock<I>
-      ) => Promise<Untuple<O>>
-    : never
-
-export type SolidityCallFunctionWithErrors<
+export type SolidityCallFunction<
   F extends SolidityFn<any, any, any, any>,
   E extends Array<SolidityError<any, any>>,
 > = F extends SolidityFn<any, infer I, infer O, any>
   ? (
       contractAddress: string,
       ...args: InnerCodecsOrBlock<I>
-    ) => Promise<
-      | {
-          ok: true
-          result: Untuple<O>
-        }
-      | {
-          ok: false
-          error: UnionErrors<E>
-        }
-    >
+    ) => Promise<ErrorResult<E, Untuple<O>>>
   : never
 
 export type SolidityCallSingle = <
@@ -84,9 +42,7 @@ export type SolidityCallSingle = <
 >(
   fn: F,
   ...errors: E
-) => [] extends E
-  ? SolidityCallFunction<F>
-  : SolidityCallFunctionWithErrors<F, E>
+) => SolidityCallFunction<F, E>
 
 export const getCall = (
   request: <T = any>(
