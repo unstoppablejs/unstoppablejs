@@ -1,13 +1,5 @@
 import { getTrackingId, logResponse } from "../internal"
-import {
-  concatMap,
-  filter,
-  Observable,
-  share,
-  skip,
-  take,
-  takeUntil,
-} from "rxjs"
+import { filter, Observable, of, share, switchMap, takeWhile } from "rxjs"
 
 export const getCurrentBlockNumber$ = (
   chainId$: Observable<string | null>,
@@ -21,9 +13,10 @@ export const getCurrentBlockNumber$ = (
   logger?: (meta: any) => void,
 ) => {
   return chainId$.pipe(
-    filter(Boolean),
-    take(1),
-    concatMap((chainId) => {
+    filter((chainId, idx) => idx > 0 || chainId !== null),
+    switchMap((chainId) => {
+      if (chainId === null) return of(null)
+
       const pullLatestBlockNumber = () => {
         const trackingId = getTrackingId()
         const type = "eth_blockNumber"
@@ -82,7 +75,7 @@ export const getCurrentBlockNumber$ = (
         },
       )
     }),
-    takeUntil(chainId$.pipe(skip(1))),
+    takeWhile(Boolean),
     share(),
   )
 }

@@ -4,21 +4,33 @@ import { getTx } from "./tx"
 import { getCurrentBlockNumber$ } from "./pullNewsHead"
 import { getPullingEvent } from "./getPullingEvent"
 import {
+  catchError,
+  concat,
   concatMap,
+  defer,
   distinctUntilChanged,
+  endWith,
   from,
-  map,
   merge,
+  NEVER,
   Observable,
+  repeat,
   ReplaySubject,
   share,
+  switchMap,
+  take,
+  takeUntil,
 } from "rxjs"
 import { SolidityError, createErrorReader } from "../descriptors"
 
 const fromEvent = <T = unknown>(provider: JsonRpcProvider, event: string) =>
   new Observable<T>((observer) => {
     const next = observer.next.bind(observer)
-    provider.on(event, next)
+    try {
+      provider.on(event, next)
+    } catch (_) {
+      return observer.error(new Error(`Unsupported event: "${event}"`))
+    }
 
     return () => {
       provider.removeListener(event, next)
@@ -41,28 +53,36 @@ export const createPullClient = (
 
   const chainId$: Observable<string | null> = from(providerPromise).pipe(
     concatMap((provider) => {
+      const connected$: Observable<string | null> = fromEvent(
+        provider,
+        "connect",
+      )
+
       const disconnected$: Observable<string | null> = fromEvent(
         provider,
         "disconnect",
-      ).pipe(map(() => null))
+      )
 
       const chainChanged$: Observable<string | null> = fromEvent<string>(
         provider,
         "chainChanged",
+      ).pipe(catchError(() => NEVER))
+
+      const getChainId = () =>
+        provider.request<string>({ method: "eth_chainId", params: [] })
+
+      const initialChainId$ = merge(
+        defer(getChainId).pipe(catchError(() => NEVER)),
+        connected$.pipe(switchMap(getChainId)),
+      ).pipe(take(1))
+
+      return concat(initialChainId$, chainChanged$).pipe(
+        distinctUntilChanged(),
+        takeUntil(disconnected$),
+        endWith(null),
+        repeat(),
       )
-      return new Observable<string | null>((observer) => {
-        provider.request<string>({ method: "eth_chainId", params: [] }).then(
-          (chainId) => {
-            observer.next(chainId)
-          },
-          () => {
-            observer.next(null)
-          },
-        )
-        return merge(disconnected$, chainChanged$).subscribe(observer)
-      })
     }),
-    distinctUntilChanged(),
     share({
       connector: () => new ReplaySubject(1),
     }),
