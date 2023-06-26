@@ -25,10 +25,10 @@
   ],
   "scripts": {
     "build": "npm run build:ts && npm run build:esm2017 && npm run build:esm2019 && npm run build:cjs:dev && npm run build:cjs:prod",
-    "build:esm2019": "esbuild src/index.ts --external:@substrate/* --bundle --outfile=./dist/sc-provider.es2019.mjs --target=es2019 --format=esm --sourcemap",
-    "build:esm2017": "esbuild src/index.ts --external:@substrate/* --bundle --outfile=./dist/sc-provider.es2017.js --target=es2017 --format=esm --sourcemap",
-    "build:cjs:dev": "esbuild src/index.ts --external:@substrate/* --bundle --outfile=./dist/sc-provider.cjs.development.js --target=es2015 --format=cjs --sourcemap",
-    "build:cjs:prod": "esbuild src/index.ts --external:@substrate/* --bundle --outfile=./dist/sc-provider.cjs.production.min.js --target=es2015 --format=cjs --minify --sourcemap",
+    "build:esm2019": "esbuild src/index.ts --external:smoldot --bundle --outfile=./dist/sc-provider.es2019.mjs --target=es2019 --format=esm --sourcemap",
+    "build:esm2017": "esbuild src/index.ts --external:smoldot --bundle --outfile=./dist/sc-provider.es2017.js --target=es2017 --format=esm --sourcemap",
+    "build:cjs:dev": "esbuild src/index.ts --external:smoldot --bundle --outfile=./dist/sc-provider.cjs.development.js --target=es2015 --format=cjs --sourcemap",
+    "build:cjs:prod": "esbuild src/index.ts --external:smoldot --bundle --outfile=./dist/sc-provider.cjs.production.min.js --target=es2015 --format=cjs --minify --sourcemap",
     "build:ts": "tsc -p ./tsconfig-build.json --outDir ./dist --skipLibCheck --emitDeclarationOnly",
     "test": "jest --coverage",
     "lint": "prettier --check README.md \"src/**/*.{js,jsx,ts,tsx,json,md}\"",
@@ -43,12 +43,12 @@
   "name": "@unstoppablejs/sc-provider",
   "author": "Josep M Sobrepere (https://github.com/josepot)",
   "peerDependencies": {
-    "@substrate/connect": ">=0.7.28"
+    "smoldot": ">=1.0.10"
   },
   "dependencies": {
     "@unstoppablejs/provider": "^0.0.1"
   },
   "devDependencies": {
-    "@substrate/connect": "^0.7.28"
+    "smoldot": "^1.0.10"
   }
 }
