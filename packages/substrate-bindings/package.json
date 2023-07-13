@@ -44,16 +44,15 @@
   },
   "dependencies": {
     "@unstoppablejs/utils": "^1.1.0",
-    "@noble/hashes": "^1.3.1"
+    "@noble/hashes": "^1.3.1",
+    "scale-ts": "^1.1.0"
   },
   "peerDependencies": {
     "@unstoppablejs/client": ">0.2.0",
-    "rxjs": ">=7.0.0",
-    "scale-ts": ">=1.1.0"
+    "rxjs": ">=7.0.0"
   },
   "devDependencies": {
     "@unstoppablejs/client": "^0.2.1",
-    "rxjs": "^7.5.5",
-    "scale-ts": "^1.1.0"
+    "rxjs": "^7.5.5"
   }
 }
