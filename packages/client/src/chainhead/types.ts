@@ -148,7 +148,17 @@ export interface FollowResponse {
     string
   >
   storage: AbortablePromiseFn<
-    [hash: string, items: Array<StorageItemInput>, childTrie: string | null],
+    [
+      hash: string,
+      query: Partial<{
+        value: Array<string>
+        hash: Array<string>
+        descendantsValues: Array<string>
+        descendantsHashes: Array<string>
+        closestDescendantMerkleValue: Array<string>
+      }>,
+      childTrie: string | null,
+    ],
     StorageResponse
   >
   genesisHash: () => Promise<string>

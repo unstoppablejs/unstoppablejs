@@ -14,24 +14,71 @@ export const createStorageFn = (
   abortablePromiseFn(
     (
       hash: string,
-      items: Array<StorageItemInput>,
+      query: Partial<{
+        value: Array<string>
+        hash: Array<string>
+        descendantsValues: Array<string>
+        descendantsHashes: Array<string>
+        closestDescendantMerkleValue: Array<string>
+      }>,
       childTrie: string | null,
       res: (output: StorageResponse) => void,
       rej: (e: any) => void,
     ) => {
       const queries: Record<StorageItemInput["type"], Set<string>> = {
-        value: new Set(),
-        hash: new Set(),
-        "closest-descendant-merkle-value": new Set(),
-        "descendants-values": new Set(),
-        "descendants-hashes": new Set(),
+        value: new Set(query.value ?? []),
+        hash: new Set(query.hash ?? []),
+        "closest-descendant-merkle-value": new Set(
+          query.closestDescendantMerkleValue ?? [],
+        ),
+        "descendants-values": new Set(query.descendantsValues ?? []),
+        "descendants-hashes": new Set(query.descendantsHashes ?? []),
       }
 
-      items.forEach(({ key, type }) => {
-        queries[type].add(key)
+      const items: Array<StorageItemInput> = []
+      query.value?.forEach((key) => {
+        items.push({
+          type: "value",
+          key,
+        })
+      })
+      query.hash?.forEach((key) => {
+        items.push({
+          type: "hash",
+          key,
+        })
+      })
+      query.descendantsValues?.forEach((key) => {
+        items.push({
+          type: "descendants-values",
+          key,
+        })
+      })
+      query.descendantsHashes?.forEach((key) => {
+        items.push({
+          type: "descendants-hashes",
+          key,
+        })
+      })
+      queries["closest-descendant-merkle-value"]?.forEach((key) => {
+        items.push({
+          type: "closest-descendant-merkle-value",
+          key,
+        })
       })
 
-      const unSub = request<string, StorageEvent>(
+      if (items.length === 0) {
+        res({
+          values: {},
+          hashes: {},
+          closests: {},
+          descendantsHashes: {},
+          descendantsValues: {},
+        })
+        return () => {}
+      }
+
+      return request<string, StorageEvent>(
         "chainHead_unstable_storage",
         [hash, items, childTrie],
         (id, followSubscription) => {
@@ -115,6 +162,5 @@ export const createStorageFn = (
           )
         },
       )
-      return unSub
     },
   )
