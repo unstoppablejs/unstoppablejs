@@ -1,14 +1,7 @@
 import { abortablePromiseFn } from "../utils/abortablePromiseFn"
-import type { UnsubscribeFn, ClientRequestCb, ClientRequest } from "../client"
-import type { StorageEvent, StorageItemInput } from "./types"
-
-export interface StorageResponse {
-  values: Record<string, string>
-  hashes: Record<string, string>
-  closests: Record<string, string>
-  descendantsValues: Record<string, Array<{ key: string; value: string }>>
-  descendantsHashes: Record<string, Array<{ key: string; hash: string }>>
-}
+import type { ClientRequestCb, ClientRequest } from "../client"
+import type { UnsubscribeFn } from "../common-types"
+import type { StorageEvent, StorageItemInput, StorageResponse } from "./types"
 
 export const createStorageFn = (
   request: <T, TT>(

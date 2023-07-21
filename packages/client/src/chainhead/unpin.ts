@@ -1,4 +1,5 @@
-import type { UnsubscribeFn, ClientRequestCb } from "../client"
+import type { UnsubscribeFn } from "../common-types"
+import type { ClientRequestCb } from "../client"
 
 export const createUnpinFn =
   (

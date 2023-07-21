@@ -1,5 +1,6 @@
 import { abortablePromiseFn } from "../utils/abortablePromiseFn"
-import type { UnsubscribeFn, ClientRequestCb } from "../client"
+import type { ClientRequestCb } from "../client"
+import type { UnsubscribeFn } from "../common-types"
 import type { CallEvent } from "./types"
 
 export const createCallFn = (

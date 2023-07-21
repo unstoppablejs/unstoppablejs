@@ -1,33 +1,16 @@
-import { AbortablePromiseFn } from "../utils/abortablePromiseFn"
-import type { ClientRequest, ClientRequestCb, UnsubscribeFn } from "../client"
+import type { ClientRequest, ClientRequestCb } from "../client"
 import type {
   FollowEventWithoutRuntime,
   FollowEventWithRuntime,
-  StorageItemInput,
+  FollowResponse,
 } from "./types"
 import { createBodyFn } from "./body"
 import { createCallFn } from "./call"
 import { createHeaderFn } from "./header"
-import { createStorageFn, StorageResponse } from "./storage"
+import { createStorageFn } from "./storage"
 import { createUnpinFn } from "./unpin"
 
 const followFinalEvents = new Set(["stop", "finalized"])
-
-export interface FollowResponse {
-  unfollow: UnsubscribeFn
-  body: AbortablePromiseFn<[hash: string], Array<string>>
-  call: AbortablePromiseFn<
-    [hash: string, fnName: string, callParameters: string],
-    string
-  >
-  storage: AbortablePromiseFn<
-    [hash: string, items: Array<StorageItemInput>, childTrie: string | null],
-    StorageResponse
-  >
-  genesisHash: () => Promise<string>
-  header: (hash: string) => Promise<string>
-  unpin: (...hashes: Array<string>) => Promise<void>
-}
 
 export function follow(
   request: ClientRequest<
