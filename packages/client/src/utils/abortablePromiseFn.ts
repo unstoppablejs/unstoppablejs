@@ -1,3 +1,5 @@
+import { AbortablePromiseFn } from "../common-types"
+
 class AbortError extends Error {
   constructor() {
     super("Aborted by AbortSignal")
@@ -5,22 +7,13 @@ class AbortError extends Error {
   }
 }
 
-type WithAbortSignal<T extends Array<any>> = [
-  ...args: T,
-  abortSignal?: AbortSignal,
-]
-
-export type AbortablePromiseFn<A extends Array<any>, T> = (
-  ...args: WithAbortSignal<A>
-) => Promise<T>
-
 export const abortablePromiseFn =
   <T, A extends Array<any>>(
     fn: (
       ...args: [...A, ...[res: (x: T) => void, rej: (e: any) => void]]
     ) => () => void,
   ): AbortablePromiseFn<A, T> =>
-  (...args: WithAbortSignal<A>): Promise<T> =>
+  (...args): Promise<T> =>
     new Promise((res, rej) => {
       const [actualArgs, abortSignal] =
         args[args.length - 1] instanceof AbortSignal

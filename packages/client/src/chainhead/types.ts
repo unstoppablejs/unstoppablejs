@@ -1,3 +1,5 @@
+import { AbortablePromiseFn, UnsubscribeFn } from "../common-types"
+
 // Common
 
 export interface Inaccessible {
@@ -126,4 +128,30 @@ export interface StorageItemInput {
     | "closest-descendant-merkle-value"
     | "descendants-values"
     | "descendants-hashes"
+}
+
+export interface StorageResponse {
+  values: Record<string, string>
+  hashes: Record<string, string>
+  closests: Record<string, string>
+  descendantsValues: Record<string, Array<{ key: string; value: string }>>
+  descendantsHashes: Record<string, Array<{ key: string; hash: string }>>
+}
+
+// Follow
+
+export interface FollowResponse {
+  unfollow: UnsubscribeFn
+  body: AbortablePromiseFn<[hash: string], Array<string>>
+  call: AbortablePromiseFn<
+    [hash: string, fnName: string, callParameters: string],
+    string
+  >
+  storage: AbortablePromiseFn<
+    [hash: string, items: Array<StorageItemInput>, childTrie: string | null],
+    StorageResponse
+  >
+  genesisHash: () => Promise<string>
+  header: (hash: string) => Promise<string>
+  unpin: (...hashes: Array<string>) => Promise<void>
 }

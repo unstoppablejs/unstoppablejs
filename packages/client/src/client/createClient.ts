@@ -1,7 +1,7 @@
 import { GetProvider, Provider, ProviderStatus } from "@unstoppablejs/provider"
+import type { UnsubscribeFn } from "../common-types"
 import { ErrorRpc, RpcError } from "./ErrorRpc"
 
-export type UnsubscribeFn = () => void
 export type SubscriptionCb<T = unknown> = (data: T, done: () => void) => void
 export type FollowSubscriptionCb<T> = (
   cb: SubscriptionCb<T>,

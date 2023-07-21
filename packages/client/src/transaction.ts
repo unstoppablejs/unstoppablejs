@@ -1,15 +1,15 @@
 import type { ClientRequest } from "./client"
 
-export interface Validated {
+export interface TxValidated {
   event: "validated"
 }
 
-export interface Broadcasted {
+export interface TxBroadcasted {
   event: "broadcasted"
   numPeers: number
 }
 
-export interface BestChainBlockIncluded {
+export interface TxBestChainBlockIncluded {
   event: "bestChainBlockIncluded"
   block: {
     hash: string
@@ -17,7 +17,7 @@ export interface BestChainBlockIncluded {
   } | null
 }
 
-export interface Finalized {
+export interface TxFinalized {
   event: "finalized"
   block: {
     hash: string
@@ -25,31 +25,31 @@ export interface Finalized {
   }
 }
 
-export interface Invalid {
+export interface TxInvalid {
   event: "invalid"
   error: string
 }
 
-export interface Dropped {
+export interface TxDropped {
   event: "dropped"
   broadcasted: boolean
   error: string
 }
 
-export type TransactionEvent =
-  | Validated
-  | Broadcasted
-  | BestChainBlockIncluded
-  | Finalized
-  | Invalid
-  | Dropped
+export type TxEvent =
+  | TxValidated
+  | TxBroadcasted
+  | TxBestChainBlockIncluded
+  | TxFinalized
+  | TxInvalid
+  | TxDropped
 
 const finalEvents = new Set(["dropped", "invalid", "finalized"])
 
 export const transaction = (
-  request: ClientRequest<string, TransactionEvent>,
+  request: ClientRequest<string, TxEvent>,
   tx: string,
-  cb: (event: TransactionEvent) => void,
+  cb: (event: TxEvent) => void,
 ) =>
   request(
     "transaction_unstable_submitAndWatch",

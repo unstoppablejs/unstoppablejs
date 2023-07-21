@@ -1,6 +1,7 @@
 import { abortablePromiseFn } from "../utils/abortablePromiseFn"
-import type { UnsubscribeFn, ClientRequestCb } from "../client"
 import type { BodyEvent } from "./types"
+import type { ClientRequestCb } from "../client"
+import type { UnsubscribeFn } from "../common-types"
 
 export const createBodyFn = (
   request: <T, TT>(
