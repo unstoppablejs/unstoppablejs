@@ -1,4 +1,8 @@
-import type { RpcError } from "../types"
+export interface RpcError {
+  code: number
+  message: string
+  data?: any
+}
 
 export class ErrorRpc extends Error implements RpcError {
   code
