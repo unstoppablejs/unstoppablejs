@@ -73,7 +73,7 @@ export const createClient = (gProvider: GetProvider): Client => {
         if (!cb) return
 
         responses.delete(id)
-        cb(
+        return cb(
           result === undefined ? new ErrorRpc(error!) : result,
           (cb, subscriptionId, unfollowMethod) => {
             subscriptionToId.set(subscriptionId, id)
@@ -94,6 +94,7 @@ export const createClient = (gProvider: GetProvider): Client => {
         clearSubscription(subscription)
       })
     } catch (e) {
+      console.log(e)
       throw new Error("Error parsing incomming message: " + message)
     }
   }

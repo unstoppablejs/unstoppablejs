@@ -10,8 +10,6 @@ import { createHeaderFn } from "./header"
 import { createStorageFn } from "./storage"
 import { createUnpinFn } from "./unpin"
 
-const followFinalEvents = new Set(["stop", "finalized"])
-
 export function follow(
   request: ClientRequest<
     string,
@@ -54,7 +52,7 @@ export function follow(
         (result: string, follow) => {
           follow(
             (event, done) => {
-              if (followFinalEvents.has(event.event)) done()
+              if (event.event === "stop") done()
               cb(event as any)
             },
             result,
