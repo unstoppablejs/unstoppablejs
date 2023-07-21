@@ -44,9 +44,5 @@
   "author": "Josep M Sobrepere (https://github.com/josepot)",
   "dependencies": {
     "@unstoppablejs/provider": "^0.0.1"
-  },
-  "devDependencies": {
-    "rxjs": "^7.4.0",
-    "ws": "^8.3.0"
   }
 }

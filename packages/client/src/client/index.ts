@@ -1,2 +1,2 @@
-export { ErrorRpc } from "./ErrorRpc"
-export { createClient } from "./MultiplexedClient"
+export * from "./ErrorRpc"
+export * from "./createClient"
