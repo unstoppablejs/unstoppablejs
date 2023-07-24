@@ -1,5 +1,5 @@
 {
-  "version": "0.2.1",
+  "version": "0.0.0-experimental-d05a4674-ed4e-466d-bf47-213030678671",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/unstoppablejs/unstoppablejs.git"
@@ -9,15 +9,15 @@
   "exports": {
     ".": {
       "node": {
-        "module": "./dist/client.es2017.js",
-        "import": "./dist/client.es2019.mjs",
+        "module": "./dist/substrate-client.es2017.js",
+        "import": "./dist/substrate-client.es2019.mjs",
         "require": "./dist/index.cjs"
       },
-      "default": "./dist/client.es2017.js"
+      "default": "./dist/substrate-client.es2017.js"
     },
     "./package.json": "./package.json"
   },
-  "module": "./dist/client.es2017.js",
+  "module": "./dist/substrate-client.es2017.js",
   "main": "./dist/index.js",
   "typings": "./dist/index.d.ts",
   "files": [
@@ -25,10 +25,10 @@
   ],
   "scripts": {
     "build": "npm run build:ts && npm run build:esm2017 && npm run build:esm2019 && npm run build:cjs:dev && npm run build:cjs:prod",
-    "build:esm2019": "esbuild src/index.ts --bundle --outfile=./dist/client.es2019.mjs --target=es2020 --format=esm --sourcemap",
-    "build:esm2017": "esbuild src/index.ts --bundle --outfile=./dist/client.es2017.js --target=es2020 --format=esm --sourcemap",
-    "build:cjs:dev": "esbuild src/index.ts --bundle --outfile=./dist/client.cjs.development.js --target=es2020 --format=cjs --sourcemap",
-    "build:cjs:prod": "esbuild src/index.ts --bundle --outfile=./dist/client.cjs.production.min.js --target=es2020 --format=cjs --minify --sourcemap",
+    "build:esm2019": "esbuild src/index.ts --bundle --outfile=./dist/substrate-client.es2019.mjs --target=es2020 --format=esm --sourcemap",
+    "build:esm2017": "esbuild src/index.ts --bundle --outfile=./dist/substrate-client.es2017.js --target=es2020 --format=esm --sourcemap",
+    "build:cjs:dev": "esbuild src/index.ts --bundle --outfile=./dist/substrate-client.cjs.development.js --target=es2020 --format=cjs --sourcemap",
+    "build:cjs:prod": "esbuild src/index.ts --bundle --outfile=./dist/substrate-client.cjs.production.min.js --target=es2020 --format=cjs --minify --sourcemap",
     "build:ts": "tsc -p ./tsconfig-build.json --outDir ./dist --skipLibCheck --emitDeclarationOnly",
     "test": "jest --coverage",
     "lint": "prettier --check README.md \"src/**/*.{js,jsx,ts,tsx,json,md}\"",
@@ -40,7 +40,7 @@
     "semi": false,
     "trailingComma": "all"
   },
-  "name": "@unstoppablejs/client",
+  "name": "@unstoppablejs/substrate-client",
   "author": "Josep M Sobrepere (https://github.com/josepot)",
   "dependencies": {
     "@unstoppablejs/provider": "^0.0.1"

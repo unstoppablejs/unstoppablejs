@@ -44,7 +44,7 @@ export function fromHex(hexString: string): Uint8Array {
   return bytes
 }
 
-class InternalUint8Array extends Uint8Array {
+export class InternalUint8Array extends Uint8Array {
   i: number = 0
   v: DataView
 

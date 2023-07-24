@@ -1,4 +1,4 @@
-import type { Client } from "@unstoppablejs/client"
+import type { Client } from "../../substrate-client/dist"
 import { mergeUint8, toHex, utf16StrToUtf8Bytes } from "@unstoppablejs/utils"
 import { Observable } from "rxjs"
 import { Decoder, Encoder } from "scale-ts"

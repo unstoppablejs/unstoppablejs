@@ -1,3 +1,4 @@
+import { toInternalBytes } from "./internal"
 import type { Codec, Decoder, Encoder } from "./types"
 import { toInternalBytes } from "./internal"
 
@@ -13,6 +14,9 @@ export const createCodec = <T>(
   result.dec = decoder
   return result
 }
+
+export const createEncoder: <T>(fn: (input: Uint8Array) => T) => Decoder<T> =
+  toInternalBytes as any
 
 export const enhanceEncoder =
   <I, O>(encoder: Encoder<I>, mapper: (value: O) => I): Encoder<O> =>
