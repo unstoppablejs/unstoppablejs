@@ -1,4 +1,4 @@
-import { createCodec, u16, u8 } from "scale-ts"
+import { createCodec, createEncoder, u16, u8 } from "scale-ts"
 
 interface Mortal {
   period: number
@@ -35,14 +35,12 @@ const mortalEncoder = (value: Mortal): Uint8Array => {
 const mortalityEncoder = (input: Mortality): Uint8Array =>
   input ? mortalEncoder(input) : u8.enc(0)
 
-const mortalityDecoder = (
-  input: string | Uint8Array | ArrayBuffer,
-): Mortality => {
+const mortalityDecoder = createEncoder((input): Mortality => {
   const firstByte = u8.dec(input)
   if (firstByte === 0) return null
 
   const secondByte = u8.dec(input)
   return mortalDecoder(firstByte, secondByte)
-}
+})
 
 export const mortality = createCodec(mortalityEncoder, mortalityDecoder)
