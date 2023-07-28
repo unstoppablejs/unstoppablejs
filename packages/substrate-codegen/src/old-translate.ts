@@ -1,6 +1,6 @@
 import type { Codec, StringRecord } from "scale-ts"
-import { lookup } from "./metadata/lookup"
-import { hashType, pallets as palletsCodec } from "./metadata/pallets"
+import { lookup } from "./meta/lookup"
+import { hashType, pallets as palletsCodec } from "./meta/pallets"
 
 import data from "./latest-metadata.json"
 
