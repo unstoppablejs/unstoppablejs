@@ -4,7 +4,7 @@ import { h64 } from "./h64"
 
 export const Twox128 = (input: Uint8Array): Uint8Array => {
   const result = new Uint8Array(16)
-  const dv = new DataView(result)
+  const dv = new DataView(result.buffer)
 
   dv.setBigUint64(0, h64(input), true)
   dv.setBigUint64(8, h64(input, 1n), true)
@@ -14,7 +14,7 @@ export const Twox128 = (input: Uint8Array): Uint8Array => {
 
 export const Twox256 = (input: Uint8Array): Uint8Array => {
   const result = new Uint8Array(32)
-  const dv = new DataView(result)
+  const dv = new DataView(result.buffer)
 
   dv.setBigUint64(0, h64(input), true)
   dv.setBigUint64(8, h64(input, 1n), true)
@@ -26,16 +26,3 @@ export const Twox256 = (input: Uint8Array): Uint8Array => {
 
 export const Twox64Concat = (encoded: Uint8Array): Uint8Array =>
   mergeUint8(u64.enc(h64(encoded)), encoded)
-
-/*
-  Blake2128: _void,
-  Blake2128Concat: _void,
-  Blake2256: _void,
-  Twox128: _void,
-  Twox256: _void,
-  Twox64Concat: _void,
-
-  Identity: _void,
-{
-}
-*/
