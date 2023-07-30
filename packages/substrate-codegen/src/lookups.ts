@@ -1,64 +1,76 @@
 import type { Codec, StringRecord } from "scale-ts"
 import { lookup } from "./metadata/lookup"
 
-export type AstPrimitive = { type: "primitive"; value: string }
-export type AstPointer = { type: "pointer"; value: CodecEntry }
-export type AstCircular = { type: "circular"; value: Ast }
-export type AstTuple = { type: "tuple"; value: CodecEntry[] }
-export type AstStruct = { type: "struct"; value: StringRecord<CodecEntry> }
-export type AstEnum = {
+export type PrimitiveVar = { type: "primitive"; value: string }
+export type CompactVar = { type: "compact"; isBig: boolean }
+export type BitSequenceVar = { type: "bitSequence" }
+export type TerminalVar = PrimitiveVar | CompactVar | BitSequenceVar
+
+export type TupleVar = { type: "tuple"; value: LookupEntry[] }
+export type StructVar = { type: "struct"; value: StringRecord<LookupEntry> }
+export type EnumVar = {
   type: "enum"
-  value: StringRecord<AstTuple | AstStruct | AstPrimitive | CodecEntry>
+  value: StringRecord<
+    (
+      | TupleVar
+      | StructVar
+      | { type: "_void" }
+      | { type: "codecEntry"; value: LookupEntry }
+    ) & { idx: number }
+  >
 }
-export type AstSequence = { type: "sequence"; value: CodecEntry }
-export type AstArray = { type: "array"; value: CodecEntry; len: number }
-export type AstCompact = { type: "compact"; isBig: boolean }
-export type AstBitSequence = { type: "bitSequence" }
+export type SequenceVar = { type: "sequence"; value: LookupEntry }
+export type ArrayVar = { type: "array"; value: LookupEntry; len: number }
 
-export type Ast =
-  | AstPrimitive
-  | AstPointer
-  | AstTuple
-  | AstStruct
-  | AstEnum
-  | AstCircular
-  | AstArray
-  | AstSequence
-  | AstCompact
-  | AstBitSequence
+export type ComposedVar =
+  | TupleVar
+  | StructVar
+  | SequenceVar
+  | ArrayVar
+  | EnumVar
 
-export type CodecEntry = {
+export type Var = TerminalVar | ComposedVar
+
+export type LookupEntry = {
   id: number
-  name: string
-} & Ast
+} & Var
 
 type LookupData = typeof lookup extends Codec<infer V> ? V : unknown
 
+const toCamelCase = (...parts: string[]): string =>
+  parts[0] +
+  parts
+    .slice(1)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join("")
+
 export const getLookupFns = (lookupData: LookupData) => {
-  const codecs = new Map<number, CodecEntry>()
+  const codecs = new Map<number, LookupEntry>()
   const from = new Set<number>()
 
-  const getVarName = (idx: number): string => {
+  const getVarName = (idx: number, isCircular = false): string => {
     const {
       type: { path },
     } = lookupData[idx]
-    if (path.length === 0) return "cdc" + idx
-    return "c" + path.map((x) => x[0].toUpperCase() + x.slice(1)).join("")
+    const parts: string[] = path.length === 0 ? ["cdc" + idx] : ["c", ...path]
+
+    if (isCircular) parts.unshift("circular")
+
+    return toCamelCase(...parts)
   }
 
-  const withCache = (fn: (id: number) => Ast): ((id: number) => CodecEntry) => {
+  const withCache = (
+    fn: (id: number) => Var,
+  ): ((id: number) => LookupEntry) => {
     return (id) => {
       let entry = codecs.get(id)
 
       if (entry) return entry
 
       if (from.has(id)) {
-        const entry: CodecEntry = {
+        const entry = {
           id,
-          name: getVarName(id),
-          type: "circular",
-          value: null as unknown as Ast,
-        }
+        } as LookupEntry
 
         codecs.set(id, entry)
         return entry
@@ -66,26 +78,23 @@ export const getLookupFns = (lookupData: LookupData) => {
 
       from.add(id)
       const value = fn(id)
-
       entry = codecs.get(id)
 
-      if (entry?.type === "circular") {
-        entry.value = value
+      if (entry) {
+        Object.assign(entry, value)
       } else {
         entry = {
           id,
-          name: getVarName(id),
           ...value,
         }
         codecs.set(id, entry!)
       }
       from.delete(id)
-
       return entry
     }
   }
 
-  const translateValue = withCache((id): Ast => {
+  const getLookupEntry = withCache((id): Var => {
     const {
       type: { def },
     } = lookupData[id]
@@ -93,49 +102,53 @@ export const getLookupFns = (lookupData: LookupData) => {
     if (def.tag === "composite") {
       if (def.value.length === 0) return { type: "primitive", value: "_void" }
 
-      if (def.value.length === 1) {
-        const pointerIdx = def.value[0].type as number
-        return { type: "pointer", value: translateValue(pointerIdx as number) }
-      }
+      // used to be a "pointer"
+      if (def.value.length === 1)
+        return getLookupEntry(def.value[0].type as number)
 
       let allKey = true
       const innerComp = def.value.map((x) => {
         const key = x.name
         allKey = allKey && !!key
-        return { key, value: translateValue(x.type as number) }
+        return { key, value: getLookupEntry(x.type as number) }
       })
 
-      if (allKey) {
-        return {
-          type: "struct",
-          value: Object.fromEntries(innerComp.map((x) => [x.key, x.value])),
-        }
-      }
-
-      return {
-        type: "tuple",
-        value: innerComp.map((x) => x.value),
-      }
+      return allKey
+        ? {
+            type: "struct",
+            value: Object.fromEntries(innerComp.map((x) => [x.key, x.value])),
+          }
+        : {
+            type: "tuple",
+            value: innerComp.map((x) => x.value),
+          }
     }
 
     if (def.tag === "variant") {
       if (def.value.length === 0) return { type: "primitive", value: "_void" }
 
       const parts = def.value.map(
-        (x): [string, AstEnum["value"][keyof AstEnum["value"]]] => {
+        (x): [string, EnumVar["value"][keyof EnumVar["value"]]] => {
           const key = x.name
           if (x.fields.length === 0) {
-            return [key, { type: "primitive", value: "_void" }]
+            return [key, { type: "_void", idx: x.index }]
           }
 
           if (x.fields.length === 1)
-            return [key, translateValue(x.fields[0].type as number)]
+            return [
+              key,
+              {
+                type: "codecEntry",
+                value: getLookupEntry(x.fields[0].type as number),
+                idx: x.index,
+              },
+            ]
 
           let allKey = true
           const inner = x.fields.map((x) => {
             const key = x.name
             allKey = allKey && !!key
-            return { key, value: translateValue(x.type as number) }
+            return { key, value: getLookupEntry(x.type as number) }
           })
 
           if (allKey) {
@@ -144,18 +157,22 @@ export const getLookupFns = (lookupData: LookupData) => {
               {
                 type: "struct",
                 value: Object.fromEntries(inner.map((x) => [x.key, x.value])),
+                idx: x.index,
               },
             ]
           }
 
-          return [key, { type: "tuple", value: inner.map((x) => x.value) }]
+          return [
+            key,
+            { type: "tuple", value: inner.map((x) => x.value), idx: x.index },
+          ]
         },
       )
 
       return {
         type: "enum",
         value: Object.fromEntries(parts) as StringRecord<
-          AstEnum["value"][keyof AstEnum["value"]]
+          EnumVar["value"][keyof EnumVar["value"]]
         >,
       }
     }
@@ -163,14 +180,14 @@ export const getLookupFns = (lookupData: LookupData) => {
     if (def.tag === "sequence") {
       return {
         type: "sequence",
-        value: translateValue(def.value as number),
+        value: getLookupEntry(def.value as number),
       }
     }
 
     if (def.tag === "array") {
       return {
         type: "array",
-        value: translateValue(def.value.type as number),
+        value: getLookupEntry(def.value.type as number),
         len: def.value.len,
       }
     }
@@ -180,16 +197,12 @@ export const getLookupFns = (lookupData: LookupData) => {
         return { type: "primitive", value: "_void" }
       }
 
-      if (def.value.length === 1) {
-        return {
-          type: "pointer",
-          value: translateValue(def.value[0] as number),
-        }
-      }
+      // use to be a "pointer"
+      if (def.value.length === 1) return getLookupEntry(def.value[0] as number)
 
       return {
         type: "tuple",
-        value: def.value.map((x) => translateValue(x as number)),
+        value: def.value.map((x) => getLookupEntry(x as number)),
       }
     }
 
@@ -198,7 +211,7 @@ export const getLookupFns = (lookupData: LookupData) => {
     }
 
     if (def.tag === "compact") {
-      const translated = translateValue(def.value as number) as AstPrimitive
+      const translated = getLookupEntry(def.value as number) as PrimitiveVar
       const isBig = Number(translated.value.slice(1)) > 32
 
       return { type: "compact", isBig }
@@ -211,5 +224,5 @@ export const getLookupFns = (lookupData: LookupData) => {
     return { type: "primitive", value: def.value }
   })
 
-  return translateValue
+  return { getLookupEntry, getVarName }
 }

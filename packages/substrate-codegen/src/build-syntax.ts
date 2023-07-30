@@ -1,45 +1,33 @@
-import { CodecEntry, Ast } from "./lookups"
+import { StringRecord } from "scale-ts"
+import { LookupEntry } from "./lookups"
 
-interface Variable {
+export interface Variable {
   id: string
   types?: string
   value: string
   directDependencies: Set<string>
 }
-interface CodeDeclarations {
+
+export interface CodeDeclarations {
   imports: Set<string>
   variables: Map<string, Variable>
-  lookupToVariableId: Map<number, string>
 }
 
-const _buildSynax = (
-  input: CodecEntry,
+const _buildSyntax = (
+  input: LookupEntry,
   declarations: CodeDeclarations,
-): CodeDeclarations => {
-  if (declarations.lookupToVariableId.has(input.id)) {
-    return declarations
-  }
-
+  stack: Set<LookupEntry>,
+  getVarName: (id: number, isCircular?: boolean) => string,
+): string => {
   if (input.type === "primitive") {
     declarations.imports.add(input.value)
-    declarations.lookupToVariableId.set(input.id, input.value)
-    return declarations
+    return input.value
   }
 
   if (input.type === "compact") {
     const importVal = input.isBig ? "compactBn" : "compactNumber"
     declarations.imports.add(importVal)
-    declarations.lookupToVariableId.set(input.id, importVal)
-    return declarations
-  }
-
-  if (input.type === "pointer") {
-    _buildSynax(input.value, declarations)
-    const actualVariableId = declarations.lookupToVariableId.get(
-      input.value.id,
-    )!
-    declarations.lookupToVariableId.set(input.id, actualVariableId)
-    return declarations
+    return importVal
   }
 
   if (
@@ -55,88 +43,135 @@ const _buildSynax = (
       directDependencies: new Set<string>(),
     }
     declarations.variables.set(variable.id, variable)
-    declarations.lookupToVariableId.set(input.id, variable.id)
-    return declarations
+    return variable.id
   }
 
-  if (input.type === "array") {
-    if (input.value.type === "primitive" && input.value.value === "u8") {
-      declarations.imports.add("Bytes")
-      const variable = {
-        id: input.name,
-        value: `Bytes(${input.len})`,
-        directDependencies: new Set<string>(),
-      }
-      declarations.variables.set(variable.id, variable)
-      declarations.lookupToVariableId.set(input.id, variable.id)
-      return declarations
+  const buildNextSyntax = (nextInput: LookupEntry): string => {
+    if (!stack.has(nextInput)) {
+      const nextStack = new Set(stack)
+      nextStack.add(input)
+      return _buildSyntax(nextInput, declarations, nextStack, getVarName)
     }
 
+    const nonCircular = getVarName(input.id)
+    const variable: Variable = {
+      id: getVarName(input.id, true),
+      types: `Codec<() => typeof ${nonCircular} extends Codec<infer V> ? V : unknown>`,
+      value: `lazy(() => ${nonCircular})`,
+      directDependencies: new Set([nonCircular]),
+    }
+
+    declarations.imports.add("lazy")
+    declarations.imports.add("Codec")
+    declarations.variables.set(variable.id, variable)
+    return variable.id
+  }
+
+  const buildVector = (id: string, inner: LookupEntry, len?: number) => {
     declarations.imports.add("Vector")
-    _buildSynax(input.value, declarations)
-    const dependsVar = declarations.lookupToVariableId.get(input.value.id)!
+    const dependsVar = buildNextSyntax(inner)
+    const args = len ? [dependsVar, len] : [dependsVar]
     const variable = {
-      id: input.name,
-      value: `Vector(${dependsVar}, ${input.len})`,
+      id,
+      value: `Vector(${args.join(", ")})`,
       directDependencies: new Set<string>([dependsVar]),
     }
-    declarations.variables.set(variable.id, variable)
-    declarations.lookupToVariableId.set(input.id, variable.id)
-    return declarations
+    declarations.variables.set(id, variable)
+    return id
   }
 
-  if (input.type === "sequence") {
-    declarations.imports.add("Vector")
-    _buildSynax(input.value, declarations)
-    const dependsVar = declarations.lookupToVariableId.get(input.value.id)!
-    const variable = {
-      id: input.name,
-      value: `Vector(${dependsVar})`,
-      directDependencies: new Set<string>([dependsVar]),
-    }
-    declarations.variables.set(variable.id, variable)
-    declarations.lookupToVariableId.set(input.id, variable.id)
-    return declarations
-  }
-
-  if (input.type === "tuple") {
+  const buildTuple = (id: string, value: LookupEntry[]) => {
     declarations.imports.add("Tuple")
-    input.value.forEach((x) => _buildSynax(x, declarations))
-    const deps = input.value.map(
-      (x) => declarations.lookupToVariableId.get(x.id)!,
-    )
+    const deps = value.map(buildNextSyntax)
     const variable = {
-      id: input.name,
+      id,
       value: `Tuple(${deps.join(", ")})`,
       directDependencies: new Set(deps),
     }
-
-    declarations.variables.set(variable.id, variable)
-    declarations.lookupToVariableId.set(input.id, variable.id)
-    return declarations
+    declarations.variables.set(id, variable)
+    return id
   }
 
-  if (input.type === "struct") {
+  const buildStruct = (id: string, value: StringRecord<LookupEntry>) => {
     declarations.imports.add("Struct")
-    Object.values(input.value).forEach((x) => _buildSynax(x, declarations))
-    const deps = Object.values(input.value).map(
-      (x) => declarations.lookupToVariableId.get(x.id)!,
-    )
+    const deps = Object.values(value).map(buildNextSyntax)
     const variable = {
-      id: input.name,
-      value: `Struct({${Object.keys(input.value)
+      id,
+      value: `Struct({${Object.keys(value)
         .map((key, idx) => `${key}: ${deps[idx]}`)
         .join(", ")}})`,
 
       directDependencies: new Set(deps),
     }
-
-    declarations.variables.set(variable.id, variable)
-    declarations.lookupToVariableId.set(input.id, variable.id)
-    return declarations
+    declarations.variables.set(id, variable)
+    return id
   }
 
-  if (input.type === "enum") {
-    return declarations
+  const varId = getVarName(input.id)
+  if (input.type === "array") {
+    // Bytes case
+    if (input.value.type === "primitive" && input.value.value === "u8") {
+      declarations.imports.add("Bytes")
+      declarations.variables.set(varId, {
+        id: varId,
+        value: `Bytes(${input.len})`,
+        directDependencies: new Set<string>(),
+      })
+      return varId
+    }
+
+    // non-fixed size Vector case
+    return buildVector(varId, input.value, input.len)
+  }
+
+  if (input.type === "sequence") return buildVector(varId, input.value)
+  if (input.type === "tuple") return buildTuple(varId, input.value)
+  if (input.type === "struct") return buildStruct(varId, input.value)
+
+  // it has to be an enum by now
+  const dependencies = Object.entries(input.value).map(([key, value]) => {
+    if (value.type === "_void") {
+      declarations.imports.add(value.type)
+      return value.type
+    }
+
+    if (value.type === "codecEntry") return buildNextSyntax(value.value)
+
+    const varName = varId + key
+    if (value.type === "tuple") {
+      buildTuple(varName, value.value)
+    } else {
+      buildStruct(varName, value.value)
+    }
+    return varName
+  })
+
+  const indexes = Object.values(input.value).map((x) => x.idx)
+  const areIndexesSorted = indexes.every((idx, i) => idx === i)
+
+  const innerEnum = `{${Object.keys(input.value).map(
+    (key, idx) => `${key}: ${dependencies[idx]}`,
+  )}${areIndexesSorted ? "" : `, [${indexes.join(", ")}]`}}`
+
+  declarations.variables.set(varId, {
+    id: varId,
+    value: `Enum(${innerEnum})`,
+    directDependencies: new Set<string>(dependencies),
+  })
+  return varId
+}
+
+export const buildSyntax = (
+  input: LookupEntry,
+  getVarName: (id: number, isCircular?: boolean) => string,
+): { declarations: CodeDeclarations; varName: string } => {
+  const declarations: CodeDeclarations = {
+    variables: new Map(),
+    imports: new Set(),
+  }
+
+  return {
+    declarations,
+    varName: _buildSyntax(input, declarations, new Set(), getVarName),
   }
 }
