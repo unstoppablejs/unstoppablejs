@@ -2,6 +2,7 @@ import { Enum, Struct, u32, _void } from "scale-ts"
 import { v14 } from "./v14"
 
 export const metadata = Struct({
+  foo: u32,
   magicNumber: u32,
   metadata: Enum({
     v0: _void,

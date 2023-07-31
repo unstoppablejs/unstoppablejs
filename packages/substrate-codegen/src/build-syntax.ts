@@ -42,9 +42,19 @@ const _buildSyntax = (
       value: "Bytes()",
       directDependencies: new Set<string>(),
     }
-    declarations.variables.set(variable.id, variable)
+
+    if (!declarations.variables.has(variable.id)) {
+      declarations.variables.set(variable.id, variable)
+    }
+
     return variable.id
   }
+
+  if (declarations.variables.has(getVarName(input.id, true)))
+    return getVarName(input.id, true)
+
+  if (declarations.variables.has(getVarName(input.id)))
+    return getVarName(input.id)
 
   const buildNextSyntax = (nextInput: LookupEntry): string => {
     if (!stack.has(nextInput)) {
@@ -129,6 +139,7 @@ const _buildSyntax = (
   if (input.type === "struct") return buildStruct(varId, input.value)
 
   // it has to be an enum by now
+  declarations.imports.add("Enum")
   const dependencies = Object.entries(input.value).map(([key, value]) => {
     if (value.type === "_void") {
       declarations.imports.add(value.type)
@@ -151,7 +162,7 @@ const _buildSyntax = (
 
   const innerEnum = `{${Object.keys(input.value).map(
     (key, idx) => `${key}: ${dependencies[idx]}`,
-  )}${areIndexesSorted ? "" : `, [${indexes.join(", ")}]`}}`
+  )}}${areIndexesSorted ? "" : `, [${indexes.join(", ")}]`}`
 
   declarations.variables.set(varId, {
     id: varId,
