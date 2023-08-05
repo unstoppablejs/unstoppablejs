@@ -2,36 +2,25 @@ import { Codec, Decoder, Encoder } from "../types"
 import { mergeUint8, toInternalBytes } from "../internal"
 import { createCodec } from "../utils"
 
-const TupleDec = <
-  A extends Array<Decoder<any>>,
-  OT extends { [K in keyof A]: A[K] extends Decoder<infer D> ? D : unknown },
->(
+const TupleDec = <A extends Array<Decoder<any>>>(
   ...decoders: A
-): Decoder<[...OT]> =>
-  toInternalBytes(
-    (bytes) => decoders.map((decoder) => decoder(bytes)) as [...OT],
-  )
+): Decoder<{ [K in keyof A]: A[K] extends Decoder<infer D> ? D : unknown }> =>
+  toInternalBytes((bytes) => decoders.map((decoder) => decoder(bytes)) as any)
 
 const TupleEnc =
-  <
-    A extends Array<Encoder<any>>,
-    OT extends { [K in keyof A]: A[K] extends Encoder<infer D> ? D : unknown },
-  >(
+  <A extends Array<Encoder<any>>>(
     ...encoders: A
-  ): Encoder<[...OT]> =>
+  ): Encoder<{ [K in keyof A]: A[K] extends Encoder<infer D> ? D : unknown }> =>
   (values) =>
     mergeUint8(...values.map((value, idx) => encoders[idx](value)))
 
-export const Tuple = <
-  A extends Array<Codec<any>>,
-  OT extends { [K in keyof A]: A[K] extends Codec<infer D> ? D : unknown },
->(
+export const Tuple = <A extends Array<Codec<any>>>(
   ...codecs: A
-): Codec<[...OT]> =>
+): Codec<{ [K in keyof A]: A[K] extends Codec<infer D> ? D : unknown }> =>
   createCodec(
     TupleEnc(...codecs.map(([encoder]) => encoder)),
     TupleDec(...codecs.map(([, decoder]) => decoder)),
-  )
+  ) as any
 
 Tuple.enc = TupleEnc
 Tuple.dec = TupleDec

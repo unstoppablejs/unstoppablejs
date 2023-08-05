@@ -1,4 +1,12 @@
-import { Codec, Decoder, Encoder, StringRecord } from "../types"
+import {
+  Codec,
+  CodecType,
+  Decoder,
+  DecoderType,
+  Encoder,
+  EncoderType,
+  StringRecord,
+} from "../types"
 import { toInternalBytes, mapObject, mergeUint8 } from "../internal"
 import { createCodec, u8 } from "../"
 
@@ -29,43 +37,33 @@ type RestrictedLenTuple<T, O extends StringRecord<any>> = Tuple<
   TuplifyUnion<keyof O> extends Tuple<any, infer V> ? V : 0
 >
 
-const enumEnc = <
-  O extends StringRecord<Encoder<any>>,
-  OT extends {
-    [K in keyof O]: O[K] extends Encoder<infer D>
-      ? D extends undefined
-        ? { tag: K; value?: undefined }
-        : { tag: K; value: D }
-      : unknown
-  },
->(
+const enumEnc = <O extends StringRecord<Encoder<any>>>(
   inner: O,
   x?: RestrictedLenTuple<number, O>,
-): Encoder<OT[keyof O]> => {
+): Encoder<
+  {
+    [K in keyof O]: { tag: K; value: EncoderType<O[K]> }
+  }[keyof O]
+> => {
   const keys = Object.keys(inner)
-  const mappedKeys = new Map<string, number>(
+  const mappedKeys = new Map<keyof O, number>(
     x?.map((actualIdx, idx) => [keys[idx], actualIdx]) ??
       keys.map((key, idx) => [key, idx]),
   )
-  const getKey = (key: string) => mappedKeys.get(key)!
+  const getKey = (key: keyof O) => mappedKeys.get(key)!
 
-  return ({ tag, value }: any) =>
+  return ({ tag, value }) =>
     mergeUint8(u8.enc(getKey(tag)), (inner as any)[tag](value))
 }
 
-const enumDec = <
-  O extends StringRecord<Decoder<any>>,
-  OT extends {
-    [K in keyof O]: O[K] extends Decoder<infer D>
-      ? D extends undefined
-        ? { tag: K; value?: undefined }
-        : { tag: K; value: D }
-      : unknown
-  },
->(
+const enumDec = <O extends StringRecord<Decoder<any>>>(
   inner: O,
   x?: RestrictedLenTuple<number, O>,
-): Decoder<OT[keyof O]> => {
+): Decoder<
+  {
+    [K in keyof O]: { tag: K; value: DecoderType<O[K]> }
+  }[keyof O]
+> => {
   const keys = Object.keys(inner)
   const mappedKeys = new Map<number, string>(
     x?.map((actualIdx, idx) => [actualIdx, keys[idx]]) ??
@@ -79,32 +77,39 @@ const enumDec = <
     return {
       tag,
       value: innerDecoder(bytes),
-    } as OT[keyof O]
+    }
   })
 }
 
-export const Enum = <
-  O extends StringRecord<Codec<any>>,
-  OT extends {
-    [K in keyof O]: O[K] extends Codec<infer D>
-      ? D extends undefined
-        ? { tag: K; value?: undefined }
-        : { tag: K; value: D }
-      : unknown
-  },
->(
+export const Enum = <O extends StringRecord<Codec<any>>>(
   inner: O,
   ...args: [indexes?: RestrictedLenTuple<number, O>]
-): Codec<OT[keyof O]> =>
-  createCodec<OT[keyof O]>(
+): Codec<
+  {
+    [K in keyof O]: { tag: K; value: CodecType<O[K]> }
+  }[keyof O]
+> =>
+  createCodec(
     enumEnc(
-      mapObject(inner, ([encoder]) => encoder) as any,
+      mapObject(inner, ([encoder]) => encoder) as StringRecord<
+        O[keyof O]["enc"]
+      >,
       ...(args as any[]),
-    ) as any,
+    ) as Encoder<
+      {
+        [K in keyof O]: { tag: K; value: CodecType<O[K]> }
+      }[keyof O]
+    >,
     enumDec(
-      mapObject(inner, ([, decoder]) => decoder) as any,
+      mapObject(inner, ([, decoder]) => decoder) as StringRecord<
+        O[keyof O]["dec"]
+      >,
       ...(args as any[]),
-    ),
+    ) as Decoder<
+      {
+        [K in keyof O]: { tag: K; value: CodecType<O[K]> }
+      }[keyof O]
+    >,
   )
 
 Enum.enc = enumEnc

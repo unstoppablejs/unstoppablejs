@@ -13,7 +13,7 @@ const tester = testCodec(
 
 describe("Enum", () => {
   it("Void()", () => {
-    tester({ tag: "nothingHere" }, "0x00")
+    tester({ tag: "nothingHere", value: undefined }, "0x00")
   })
 
   it("Int(42)", () => {
@@ -33,11 +33,10 @@ describe("Enum", () => {
   })
 
   it("Option()", () => {
-    tester({ tag: "optionalBool" }, "0x0300")
+    tester({ tag: "optionalBool", value: undefined }, "0x0300")
   })
 
   it("Option(_void)", () => {
-    tester({ tag: "optVoid" }, "0x0400")
     tester({ tag: "optVoid", value: undefined }, "0x0400")
   })
 })
@@ -57,7 +56,7 @@ const testerWithIdxs = testCodec(
 
 describe("Enum", () => {
   it("Void()", () => {
-    testerWithIdxs({ tag: "nothingHere" }, "0xff")
+    testerWithIdxs({ tag: "nothingHere", value: undefined }, "0xff")
   })
 
   it("Int(42)", () => {
@@ -77,11 +76,11 @@ describe("Enum", () => {
   })
 
   it("Option()", () => {
-    testerWithIdxs({ tag: "optionalBool" }, "0x0100")
+    testerWithIdxs({ tag: "optionalBool", value: undefined }, "0x0100")
   })
 
   it("Option(_void)", () => {
-    testerWithIdxs({ tag: "optVoid" }, "0xfe00")
+    testerWithIdxs({ tag: "optVoid", value: undefined }, "0xfe00")
     testerWithIdxs({ tag: "optVoid", value: undefined }, "0xfe00")
   })
 })
