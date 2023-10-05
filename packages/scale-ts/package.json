@@ -8,7 +8,9 @@
   "sideEffects": false,
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "node": {
+        "types": "./dist/index.d.ts",
         "module": "./dist/scale-ts.js",
         "import": "./dist/scale-ts.mjs",
         "require": "./dist/index.cjs"
