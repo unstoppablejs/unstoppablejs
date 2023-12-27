@@ -1,4 +1,4 @@
-export const mergeUint8 = (...inputs: Array<Uint8Array>): Uint8Array => {
+export const mergeUint8 = (inputs: Array<Uint8Array>): Uint8Array => {
   const len = inputs.length
   let totalLen = 0
   for (let i = 0; i < len; i++) totalLen += inputs[i].byteLength

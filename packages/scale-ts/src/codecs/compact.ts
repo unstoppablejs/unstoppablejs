@@ -79,7 +79,7 @@ const compactEnc: Encoder<number | bigint> = (input) => {
 
   smValue && buffers.push(u8[0](smValue))
 
-  const result = mergeUint8(...buffers)
+  const result = mergeUint8(buffers)
   result[0] = ((result.length - 5) << 2) | 3
 
   return result

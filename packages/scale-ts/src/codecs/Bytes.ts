@@ -5,7 +5,7 @@ import { compact } from "./compact"
 
 const BytesEnc = (nBytes?: number): Encoder<Uint8Array> =>
   nBytes === undefined
-    ? (bytes) => mergeUint8(compact.enc(bytes.length), bytes)
+    ? (bytes) => mergeUint8([compact.enc(bytes.length), bytes])
     : (bytes) => (bytes.length === nBytes ? bytes : bytes.slice(0, nBytes))
 
 const BytesDec = (nBytes?: number): Decoder<Uint8Array> =>

@@ -5,7 +5,7 @@ import { compact } from "./compact"
 const textEncoder = new TextEncoder()
 const strEnc: Encoder<string> = (str) => {
   const val = textEncoder.encode(str)
-  return mergeUint8(compact.enc(val.length), val)
+  return mergeUint8([compact.enc(val.length), val])
 }
 
 const textDecoder = new TextDecoder()

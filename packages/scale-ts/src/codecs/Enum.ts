@@ -53,7 +53,7 @@ const enumEnc = <O extends StringRecord<Encoder<any>>>(
   const getKey = (key: keyof O) => mappedKeys.get(key)!
 
   return ({ tag, value }) =>
-    mergeUint8(u8.enc(getKey(tag)), (inner as any)[tag](value))
+    mergeUint8([u8.enc(getKey(tag)), (inner as any)[tag](value)])
 }
 
 const enumDec = <O extends StringRecord<Decoder<any>>>(

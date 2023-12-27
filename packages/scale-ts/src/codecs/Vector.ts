@@ -5,8 +5,9 @@ import { compact } from "./compact"
 
 const VectorEnc = <T>(inner: Encoder<T>, size?: number): Encoder<Array<T>> =>
   size! >= 0
-    ? (value) => mergeUint8(...value.map(inner))
-    : (value) => mergeUint8(compact.enc(value.length), ...value.map(inner))
+    ? (value) => mergeUint8(value.map(inner))
+    : (value) =>
+        mergeUint8([compact.enc(value.length), mergeUint8(value.map(inner))])
 
 const VectorDec = <T>(getter: Decoder<T>, size?: number): Decoder<Array<T>> =>
   toInternalBytes((bytes) => {

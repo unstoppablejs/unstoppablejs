@@ -29,7 +29,7 @@ const OptionEnc =
       return result
     }
 
-    return mergeUint8(result, inner(value))
+    return mergeUint8([result, inner(value)])
   }
 
 export const Option = <T>(inner: Codec<T>): Codec<T | undefined | void> =>

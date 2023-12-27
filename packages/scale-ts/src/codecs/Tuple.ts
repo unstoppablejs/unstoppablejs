@@ -12,7 +12,7 @@ const TupleEnc =
     ...encoders: A
   ): Encoder<{ [K in keyof A]: A[K] extends Encoder<infer D> ? D : unknown }> =>
   (values) =>
-    mergeUint8(...values.map((value, idx) => encoders[idx](value)))
+    mergeUint8(values.map((value, idx) => encoders[idx](value)))
 
 export const Tuple = <A extends Array<Codec<any>>>(
   ...codecs: A

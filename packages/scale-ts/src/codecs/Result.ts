@@ -24,10 +24,10 @@ const ResultEnc =
     koEncoder: Encoder<KO>,
   ): Encoder<ResultPayload<OK, KO>> =>
   ({ success, value }) =>
-    mergeUint8(
+    mergeUint8([
       u8[0](success ? 0 : 1),
       (success ? okEncoder : koEncoder)(value as any),
-    )
+    ])
 
 export const Result = <OK, KO>(
   okCodec: Codec<OK>,
