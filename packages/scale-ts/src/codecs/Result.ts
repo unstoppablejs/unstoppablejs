@@ -3,7 +3,7 @@ import { mergeUint8, toInternalBytes } from "../internal"
 import { Decoder, Encoder, Codec } from "../types"
 import { u8 } from "./fixed-width-ints"
 
-type ResultPayload<OK, KO> =
+export type ResultPayload<OK, KO> =
   | { success: true; value: OK }
   | { success: false; value: KO }
 
