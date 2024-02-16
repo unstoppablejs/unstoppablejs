@@ -4,7 +4,7 @@ import { createCodec } from "../utils"
 import { u8 } from "./fixed-width-ints"
 import { bool } from "./bool"
 
-const OptionDec = <T>(inner: Decoder<T>): Decoder<T | undefined | void> =>
+const OptionDec = <T>(inner: Decoder<T>): Decoder<T | undefined> =>
   toInternalBytes<T | undefined>((bytes) => {
     const val = u8.dec(bytes)
     if (val === 0) return undefined
@@ -15,7 +15,7 @@ const OptionDec = <T>(inner: Decoder<T>): Decoder<T | undefined | void> =>
   })
 
 const OptionEnc =
-  <T>(inner: Encoder<T>): Encoder<T | undefined | void> =>
+  <T>(inner: Encoder<T>): Encoder<T | undefined> =>
   (value) => {
     const result = new Uint8Array(1)
     if (value === undefined) {
@@ -32,7 +32,7 @@ const OptionEnc =
     return mergeUint8([result, inner(value)])
   }
 
-export const Option = <T>(inner: Codec<T>): Codec<T | undefined | void> =>
+export const Option = <T>(inner: Codec<T>): Codec<T | undefined> =>
   createCodec(OptionEnc(inner[0]), OptionDec(inner[1]))
 
 Option.enc = OptionEnc
