@@ -25,11 +25,11 @@ describe("Enum", () => {
   })
 
   it("Option(true)", () => {
-    tester({ tag: "optionalBool", value: true }, "0x0301")
+    tester({ tag: "optionalBool", value: true }, "0x030101")
   })
 
   it("Option(false)", () => {
-    tester({ tag: "optionalBool", value: false }, "0x0302")
+    tester({ tag: "optionalBool", value: false }, "0x030100")
   })
 
   it("Option()", () => {
@@ -68,11 +68,11 @@ describe("Enum", () => {
   })
 
   it("Option(true)", () => {
-    testerWithIdxs({ tag: "optionalBool", value: true }, "0x0101")
+    testerWithIdxs({ tag: "optionalBool", value: true }, "0x010101")
   })
 
   it("Option(false)", () => {
-    testerWithIdxs({ tag: "optionalBool", value: false }, "0x0102")
+    testerWithIdxs({ tag: "optionalBool", value: false }, "0x010100")
   })
 
   it("Option()", () => {

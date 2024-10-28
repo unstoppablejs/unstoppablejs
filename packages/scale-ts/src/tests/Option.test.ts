@@ -15,7 +15,7 @@ describe("Option", () => {
   it("Booleans", () => {
     const tester = testCodec(Option(bool))
     tester(undefined, "0x00")
-    tester(true, "0x01")
-    tester(false, "0x02")
+    tester(true, "0x0101")
+    tester(false, "0x0100")
   })
 })
